@@ -1,0 +1,20 @@
+<script src="<%- contextPath %>/js/jquery-1.12.3.min.js"></script>
+<script src="<%- contextPath %>/js/font-awesome-all.js"></script>
+<script src="<%- contextPath %>/js/yasqe.bundled.min.js"></script>
+<script src="<%- contextPath %>/js/front.js"></script>
+<script>
+    checkStatus('<%- contextPath %>')
+    window.setInterval(() => { checkStatus('<%- contextPath %>') }, 1000)
+</script>
+
+<link rel="icon" type="image/png" href="<%- contextPath %>/img/hylar-icon.png">
+<link rel="stylesheet" href="<%- contextPath %>/css/bulma.min.css">
+<link ref="stylesheet" href="<%- contextPath %>/css/font-awesome-all.css">
+<link rel="stylesheet" href="<%- contextPath %>/css/main.css">
+<link rel="stylesheet" href="<%- contextPath %>/css/yasqe.min.css">
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>HyLAR GUI</title>
+<% include ../partials/footer.ejs %>

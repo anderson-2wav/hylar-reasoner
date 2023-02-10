@@ -1,0 +1,146 @@
+body {
+	padding-top: 125px;
+}
+
+h1 {
+  font-weight: 100;
+  padding-bottom: 20px;
+}
+
+h2 {
+  font-weight: 100;
+  padding-top: 30px; 
+  border-top: 1px solid #ddd; 
+}
+
+h3 {
+  font-weight: 200;
+}
+
+blockquote {
+  background: linear-gradient(70deg, #eee, white);
+  padding-top: 5px;  
+  padding-bottom: 1px;  
+  padding-left: 12px;  
+  margin: 15px;  
+  margin-right: 50%;    
+  border-left: 10px solid #bbb;    
+  border-bottom: 1px solid #bbb;  
+}
+
+p em {
+  padding-left: 7px;
+  padding-right: 7px;
+  font-weight: 300;
+  font-style: normal; 
+}
+
+p strong {  
+  display: block;  
+  padding-bottom: 5px;  
+}
+
+tiny {
+	font-size: 16px;	
+}
+
+.navbar {
+	box-shadow: 2px 2px 15px 2px #BBB;
+	z-index: 1;
+}
+
+tree {
+	position: sticky;
+	padding: 20px;		
+	padding-right: 40px;
+	background-color: #eceeef;	
+}
+
+.sidebar {
+  position: fixed;
+  top: 51px;
+  bottom: 0;
+  left: 0;  
+  margin-top: 60px;
+  padding: 20px;
+  overflow-x: hidden;
+  overflow-y: auto; /* Scrollable contents if viewport is shorter than content. */
+  border-right: 1px solid #ddd;
+  border-top: 1px solid #ddd;
+ }
+
+.sidebar {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.sidebar .nav {
+  margin-bottom: 20px;
+}
+
+.sidebar .nav-item {
+  width: 100%;
+}
+
+ul li {
+	font-weight: 600;
+	margin-left: 1em;   
+	list-style: none;	
+}
+
+li ul li {	
+	font-weight: 400;
+  font-color: blue;
+	font-size: 14px;	
+  margin-left: 0px;    
+  border-left: 1px solid #999;	    
+}
+
+.li-link {
+  background-repeat: no-repeat;
+  background-position: left 14px;
+  background-size: 14px 14px;  
+  padding-left: 1em;     
+}
+
+.li-main {
+   background-image: url('../hylar-icon.png');
+}
+
+ul li .li-link {    
+  background: linear-gradient(70deg, #eee, white)
+}
+
+pre {
+    margin-right: 40%; 
+    margin-left: 15px;   
+    height: 200px;              
+}
+
+.hljs  {  
+  height: 100%;
+  padding-left: 20px;  
+  background-color: #ddd;  
+  border: 1px solid #bbb;  
+  border-radius: 2px;  
+}
+
+.eval {
+  font-size: 12px;  
+  background-color: #ddd;   
+  padding: 2px;
+  border: 1px solid #bbb;  
+}
+
+.eval:hover, eval:active {  
+  text-decoration: none;
+  background-color: #eee;
+}
+
+.eval a:hover {
+  text-decoration: none;
+}
+
+.ragged {
+  margin-left: 16px;
+}

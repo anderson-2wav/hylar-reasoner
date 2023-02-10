@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <% include ../partials/head.ejs %>
+</head>
+<body>
+<header>
+    <% include ../partials/menu.ejs %>
+</header>
+
+<section class="hero is-dark">
+    <div class="hero-body">
+        <p class="title">
+            Rules
+        </p>
+    </div>
+</section>
+
+<section class="section">
+    <article class="message is-info">
+        <div class="message-body">
+            The reasoner currently supports <%- rules.length %> rule<% if (rules.length != 1) {%>s<% } %>.
+            <p>
+                <i class="fas fa-undo-alt"></i> <a onclick="areYouSure(this, '<%- contextPath %>/rule/remove/<%- i %>')">Set the reasoner back to the initial rule set</a>
+            </p>
+        </div>
+    </article>
+    <article class="message is-primary">
+        <div class="message-body">
+            <i class="far fa-file-alt"></i> Please see HyLAR <a target="_blank" href="https://www.npmjs.com/package/hylar#create-your-own-rules">guidelines</a> for writing rules.
+            Prefixes on rules are not supported (e.g. owl:*, rdf:*, ...), hence use full URIs.
+        </div>
+    </article>
+</section>
+
+<section class="section">
+    <div class="card">
+        <header class="card-header">
+            <p class="card-header-title">
+                Add a rule
+            </p>
+        </header>
+        <div class="card-content">
+            <div class="field">
+                <label class="label">Name</label>
+                <div class="control">
+                    <input name="rulename" class="input" type="text" placeholder="Rule-X">
+                </div>
+            </div>
+            <div class="field">
+                <label class="label">
+                    Rule
+                </label>
+                <div class="control">
+                    <textarea id="rule-content" class="textarea" name="rule" class="input" type="text" placeholder="(?c1 http://www.w3.org/2000/01/rdf-schema#subClassOf ?c2) ^ ... -> ..."></textarea>
+                </div>
+            </div>
+
+            <div class="field">
+                <div class="select">
+                    <select onchange="appendPrefix(this)">
+                        <option>Quick URI prefix selector...</option>
+                        <% for (let prefix of Object.keys(prefixes)) { %>
+                        <option><%- prefixes[prefix] %></option>
+                        <% } %>
+                    </select>
+                </div>
+            </div>
+
+            <div class="field">
+                <div class="control has-text-centered">
+                    <button onclick="addRule('<%- contextPath %>')" class="button is-dark is-link">Save rule</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="section">
+        <p class="title">Current rules</p>
+        <% if (rules.length == 0) { %>HyLAR has no rules (no pun intended!)<% } %>
+        <table class="table table-bordered">
+            <tr>
+                <th>Name</th>
+                <th>Rule</th>
+                <th>Entailment</th>
+                <th>Remove</th>
+            </tr>
+            <% for (var i = 0; i < rules.length; i++) { %>
+                <tr>
+                    <td>
+                        <% if (rules[i].name) { %><%- rules[i].name %><% } else { %>Unnamed rule #<%- i %>%><% } %>
+                    </td>
+                    <td>
+                        <small><%- rules[i].rule %></small>
+                    </td>
+                    <td>
+                        <div class="<%- rules[i].type.toLowerCase() %>"><%- rules[i].type %></div>
+                    </td>
+                    <td class="status">
+
+                        <% if (rules[i].type == "CUSTOM") { %>
+                        <a href="<%- contextPath %>/rule/remove/<%- rules[i].name %>"><i class="fas fa-trash"></i></a>
+                        <% } %>
+                    </td>
+                </tr>
+            <% } %>
+        </table>
+        </br>
+    </div>
+</section>
+</body>

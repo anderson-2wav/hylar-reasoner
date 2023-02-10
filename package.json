@@ -1,0 +1,88 @@
+{
+  "_from": "hylar",
+  "_id": "hylar@10.0.4",
+  "_inBundle": false,
+  "_integrity": "sha512-CJJwkwELxw9dm9xuLQHPhVDKdyNBBuacQMJc/GEyAJ9GwR1ua7aPKMn74nZ7ownK+S5Uo5Ah2laZpueK2XkD7A==",
+  "_location": "/hylar",
+  "_phantomChildren": {},
+  "_requested": {
+    "type": "tag",
+    "registry": true,
+    "raw": "hylar",
+    "name": "hylar",
+    "escapedName": "hylar",
+    "rawSpec": "",
+    "saveSpec": null,
+    "fetchSpec": "latest"
+  },
+  "_requiredBy": [
+    "#USER",
+    "/"
+  ],
+  "_resolved": "https://registry.npmjs.org/hylar/-/hylar-10.0.4.tgz",
+  "_shasum": "ce74f7217343c8b1deba7c1100c22b4aff0d5a7d",
+  "_spec": "hylar",
+  "_where": "/Users/josephdigiovanna/Projects/hylar-custom",
+  "bin": {
+    "hylar": "hylar/server/server.js"
+  },
+  "bugs": {
+    "url": "https://github.com/ucbl/HyLAR-Reasoner/issues"
+  },
+  "bundleDependencies": false,
+  "dependencies": {
+    "asciify": "^1.3.2",
+    "bluebird": "^3.5.1",
+    "body-parser": "^1.18.3",
+    "chalk": "^2.4.1",
+    "chalk-rainbow": "^1.0.0",
+    "ejs": "^2.6.1",
+    "express": "^4.16.3",
+    "md5": "^2.2.1",
+    "mime-types": "^2.1.19",
+    "multer": "^1.3.1",
+    "q": "^1.5.1",
+    "rdflib": "^0.0.2",
+    "rdfstore": "git+https://github.com/mterdjimi/rdfstore-js.git",
+    "sparqljs": "^2.1.0",
+    "xml2js": "^0.4.19"
+  },
+  "deprecated": false,
+  "description": "A rule-based incremental reasoner for the Web.",
+  "devDependencies": {
+    "brfs": "^2.0.0",
+    "browserify": "^16.2.3",
+    "cross-env": "^5.2.0",
+    "mocha": "^8.3.2",
+    "should": "^13.2.3",
+    "typescript": "^3.7.4"
+  },
+  "engines": {
+    "node": ">=0.10.0"
+  },
+  "homepage": "https://github.com/ucbl/HyLAR-Reasoner#readme",
+  "keywords": [
+    "reasoning",
+    "owl",
+    "incremental",
+    "semantic web",
+    "incremental reasoning",
+    "rdf",
+    "owl reasoner"
+  ],
+  "license": "MIT",
+  "main": "hylar/hylar.js",
+  "name": "hylar",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ucbl/HyLAR-Reasoner.git"
+  },
+  "scripts": {
+    "build": "browserify -t brfs test/benchmark_tests_lite.js > bench.js",
+    "clientize": "browserify hylar/hylar.js -o hylar-client.js",
+    "start": "node hylar/server/server.js",
+    "start-tb": "node hylar/server/server.js -rm tagBased",
+    "test": "cross-env rm=incremental mocha test/*_test.js"
+  },
+  "version": "10.0.4"
+}

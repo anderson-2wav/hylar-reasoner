@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Created by MT on 01/12/2015.
  */
@@ -431,7 +432,7 @@ class Hylar {
     async treatUpdateWithGraph(query, syncCB, persistDerivations) {
         syncCB = syncCB || function(result) {};
         if (typeof persistDerivations === "undefined") persistDerivations = true;
-        
+
         var sparql = ParsingInterface.parseSPARQL(query),
             promises = [], updates;
 

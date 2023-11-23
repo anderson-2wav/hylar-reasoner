@@ -583,7 +583,7 @@ class Hylar {
             return;
         }
 
-        Hylar.notify('... Recovering DB ...')
+        Hylar.notify('... Recovering DB from '+dbDir+'...')
 
         let dbconf = {
             mappingsGraphDbFiles: {},

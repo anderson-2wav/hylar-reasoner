@@ -6,7 +6,8 @@
 const fs = require('fs'),
     chalk = require('chalk'),
     chalkRainbow = require('chalk-rainbow')
-    q = require('q');
+    q = require('q')
+    util = require('util');
 
 const Promise = require('bluebird');
 
@@ -26,11 +27,22 @@ const Dictionary = require('./core/Dictionary'),
 
 const logFile = 'hylar.log';
 
+function debug() {
+    if (process.env["HYLAR_DEBUG"]) {
+        console.log.apply(undefined,arguments);
+    }
+}
+
 /**
  * HyLAR main module.
  * @author Mehdi Terdjimi
  * @organization LIRIS, Universite Lyon 1
  * @email mehdi.terdjimi@univ-lyon1.fr
+ * @param {object} [params]
+ * @param {boolean} [params.reasoning=true]
+ * @param {string} [params.dbDir="./db"]
+ * @param {string} [params.entailment="owl2rl"] "rdfs" is also supported
+ * @param {boolean} [params.persistent=false]
  */
 
 class Hylar {
@@ -41,7 +53,8 @@ class Hylar {
         this.sm.init()
 
         this.prefixes = Prefixes
-        this.reasoning = true
+        this.reasoning = params.reasoning !== false;
+        this.dbDir = params.dbDir || './db';
 
         this._setEntailment(params.entailment)
         this._setupPersistence(params.persistent)
@@ -106,7 +119,7 @@ class Hylar {
      * @private
      */
     async _setupPersistence(persistent) {
-        if (persistent != null && persistent == true) {
+        if (persistent === true) {
             this.allowPersist = true
             this.restore()
         } else {
@@ -261,7 +274,7 @@ class Hylar {
             default:
                 try {
                     let rCt = await this.sm.load(ontologyTxt, mimeType)
-                    // console.log(`${rCt} triples loaded in the store`);
+                    console.log(`${rCt} triples loaded in the store`);
 
                     Hylar.notify(rCt + ' triples loaded in the store.', {  })
                     if (this.reasoning == true) {
@@ -513,10 +526,13 @@ class Hylar {
 
     persist() {
         if (!this.allowPersist && fs) return
-
+        // TODO temporarily useful to know when hylar persists.
+        const stack = new Error().stack;
+        debug("====== HYLAR persist. This is not really an error, just a stack trace",stack);
+        var dbDir = this.dbDir || './db';
         // Check if db folder exists
-        if (!fs.existsSync('./db')){
-            fs.mkdirSync('./db')
+        if (!fs.existsSync(dbDir)){
+            fs.mkdirSync(dbDir)
         }
 
         let dbconf = {
@@ -524,8 +540,8 @@ class Hylar {
             customRules: []
         }
 
-        if (fs.existsSync('./db/db.conf')) {
-            dbconf = Object.assign(dbconf, JSON.parse(fs.readFileSync('./db/db.conf').toString()))
+        if (fs.existsSync(dbDir+'/db.conf')) {
+            dbconf = Object.assign(dbconf, JSON.parse(fs.readFileSync(dbDir+'/db.conf').toString()))
         }
 
         dbconf.customRules = this._customRules.map((r => { return { name: r.name, content: r.toString() } }))
@@ -533,49 +549,89 @@ class Hylar {
         for (let graphUri in this.getDictionary().dict) {
             // Write db content on file
             let filename = `${graphUri.match(RegularExpressions.URI_AFTER_HASH_OR_SLASH)[0]}.n3`
-            let dbfilename = `./db/${filename}`
+            let dbfilename = `${dbDir}/${filename}`
             let graphContent = this.getDictionary().dict[graphUri]
             let explicitEntries = []
 
             for (let triple in graphContent) {
                 if (Logics.getOnlyExplicitFacts(graphContent[triple]).length > 0) explicitEntries.push(triple)
+                if (this.EJSON) {
+                    try {
+                        const factJson = this.EJSON.stringify(graphContent[triple]);
+                    }
+                    catch (e) {
+                        console.log(util.inspect(graphContent[triple],false,4));
+                        throw e;
+                    }
+                }
             }
             fs.writeFileSync(dbfilename, explicitEntries.join('\n'))
 
             dbconf.mappingsGraphDbFiles[filename] = graphUri
         }
 
-        fs.writeFileSync('./db/db.conf', JSON.stringify(dbconf, null, 3))
+        fs.writeFileSync(dbDir+'/db.conf', JSON.stringify(dbconf, null, 3))
     }
 
     async restore() {
-        if (!fs || !fs.existsSync('./db') || !this.allowPersist) return
+        this.restored = undefined;
+        var dbDir = this.dbDir || './db';
+        if (!fs || !fs.existsSync(dbDir) || !this.allowPersist) return
+        let files  = fs.readdirSync(dbDir)
+        if (!files.length) {
+            Hylar.notify("No db files to recover.");
+            return;
+        }
 
         Hylar.notify('... Recovering DB ...')
 
-        let files  = fs.readdirSync('./db')
         let dbconf = {
             mappingsGraphDbFiles: {},
             customRules: []
         }
 
-        if (fs.existsSync('./db/db.conf')) {
-            dbconf = Object.assign(dbconf, JSON.parse(fs.readFileSync('./db/db.conf').toString()))
+        if (fs.existsSync(dbDir+'/db.conf')) {
+            dbconf = Object.assign(dbconf, JSON.parse(fs.readFileSync(dbDir+'/db.conf').toString()))
         }
+
+        // turn off reasoning before loading
+        var wasReasoning = this.reasoning;
+        this.reasoning = false;
 
         for (let file of files.filter((file) => { return file != 'db.conf'})) {
             try {
-                let content = fs.readFileSync(`./db/${file}`).toString()
+                let content = fs.readFileSync(`${dbDir}/${file}`).toString()
                 for (let rule of dbconf.customRules) {
                     this._customRules.push(Logics.parseRule(rule.content, rule.name))
                 }
                 await this.load(content, 'text/n3', true, dbconf.mappingsGraphDbFiles[file])
             } catch (err) {
-                Hylar.displayWarning(Errors.DBParsing(file))
+                Hylar.displayWarning(Errors.DBParsing(file));
+                // don't continue
+                throw err;
             }
         }
 
+        this.restored = true;
+        this.reasoning = wasReasoning;
         Hylar.notify('* DB recover finished *')
+    }
+
+    /**
+     * Because restore is called in a non-async constructor,
+     * this is necessary for initializing clients to know if
+     * db is restored on construction.
+     * @returns {Promise<boolean|*>}
+     */
+    async isRestored() {
+        while (this.restored === undefined) {
+            await (new Promise((resolve,reject) => {
+                setTimeout(function() {
+                    resolve();
+                },500);
+            }));
+        }
+        return this.restored;
     }
 
     checkConsistency() {
@@ -751,7 +807,7 @@ class Hylar {
         }
         this.registerDerivations(derivations, graph);
 
-        let chunks = [], chunksNb = 5000
+        let chunks = [], chunksNb = 2000
 
         for (var i = 0, j = derivations.additions.length; i < j; i += chunksNb) {
             let factsChunk = derivations.additions.slice(i,i+chunksNb);
@@ -759,8 +815,11 @@ class Hylar {
         }
 
         Hylar.notify('Classification succeeded.');
-
+        let ct = 1;
         await Promise.reduce(chunks, (previous, chunk) => {
+            debug(`this.sm.insert chunk ${ct++}`);
+            // fs.appendFileSync("/tmp/hylar-chunks",`\n === chunk ${ct} ===\n`);
+            // fs.appendFileSync("/tmp/hylar-chunks",chunk);
             return this.sm.insert(chunk);
         }, 0)
 

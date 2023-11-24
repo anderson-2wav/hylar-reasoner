@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Created by Spadon on 13/11/2015.
  */

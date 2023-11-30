@@ -273,6 +273,12 @@ class Hylar {
                 break;
             default:
                 try {
+                    // put in line breaks for easier parse debugging:
+                    ontologyTxt = ontologyTxt.replace(/ \. /g," . \n");
+                    // rdfstore parser freaks out at backslash
+                    ontologyTxt = ontologyTxt.replace(/\\/g,"/");
+                    console.log(`loading ontologyTxt.length=${ontologyTxt.length} writing to "/tmp/ontologyTxt"`);
+                    fs.writeFileSync("/tmp/ontologyTxt",ontologyTxt);
                     let rCt = await this.sm.load(ontologyTxt, mimeType)
                     console.log(`${rCt} triples loaded in the store`);
 
@@ -701,9 +707,11 @@ class Hylar {
         FeIns = ParsingInterface.triplesToFacts(iTriples, true, (this.rMethod == Reasoner.process.it.incrementally));
         Hylar.notify('Starting ParsingInterface.triplesToFacts (dTriples).');
         FeDel = ParsingInterface.triplesToFacts(dTriples, true, (this.rMethod == Reasoner.process.it.incrementally));
+        const startReasoning = Date.now();
         Hylar.notify('Starting Reasoner.evaluate.');
         let derivations = await Reasoner.evaluate(FeIns, FeDel, F.concat(this.axioms), this.rMethod, this.rules,)
-        Hylar.notify('Finished Reasoner.evaluate.');
+        const endReasoning = Date.now();
+        Hylar.notify(`Finished Reasoner.evaluate in ${Math.round((endReasoning-startReasoning)/1000)} seconds.`);
         // Use callback to pass derivations back up the chain to the external application
         syncCB(derivations);
 
@@ -786,6 +794,7 @@ class Hylar {
      * @returns {*}
      */
     async classify(graph) {
+        const start = Date.now();
         Hylar.notify('Classification started.');
 
         let r = await this.sm.query('CONSTRUCT { ?a ?b ?c } WHERE { ?a ?b ?c }')
@@ -814,7 +823,7 @@ class Hylar {
             chunks.push(ParsingInterface.factsToTurtle(factsChunk));
         }
 
-        Hylar.notify('Classification succeeded.');
+
         let ct = 1;
         await Promise.reduce(chunks, (previous, chunk) => {
             debug(`this.sm.insert chunk ${ct++}`);
@@ -822,13 +831,15 @@ class Hylar {
             // fs.appendFileSync("/tmp/hylar-chunks",chunk);
             return this.sm.insert(chunk);
         }, 0)
-
+        const end = Date.now()
+        Hylar.notify(`Classification succeeded in ${Math.round((end-start)/1000)} seconds.`);
         emitter.emit('classif-ended');
         return true
     }
 
-    async recomputeClosure() {
-        let fullExplicitGraphs = this.dict.explicitGraphs()
+    async recomputeClosure(explicit = true) {
+
+        let fullExplicitGraphs = explicit ? this.dict.explicitGraphs() : this.dict.allGraphsAsTtl();
         await this.clean()
 
         // JD - Found edge case failure here in rdfstore.js, failure to handle promise error
@@ -846,6 +857,32 @@ class Hylar {
 
         for (let graph of fullExplicitGraphs) {
             await this.load(graph.content, 'text/turtle', true, graph.name)
+        }
+    }
+
+    /**
+     * Load the RDF store from all Facts in all graphs,
+     * both explicit and inferred. Graphs remain untouched.
+     * This is specifically useful to restore a fully
+     * working hylar reasoner and sparql engine from a
+     * saved Facts collection.
+     * @returns {Promise<void>}
+     */
+    async loadStoreFromGraphs() {
+        const allGraphs = this.dict.allGraphsAsTtl();
+        for (let graph of allGraphs) {
+            // graph.name is only relevant when saving Facts to the graph,
+            // the rdfstore doesn't care.
+            // put in line breaks for easier parse debugging:
+            let content = graph.content.replace(/ \. /g," . \n");
+            // rdfstore freaks out at \
+            content = content.replace(/\\/g,"/");
+            fs.writeFileSync("/tmp/graph.txt",content);
+            let rCt = await this.sm.load(content, "text/turtle");
+            console.log(`${rCt} triples loaded in the store`);
+
+            Hylar.notify(rCt + ' triples loaded in the store.', {  })
+
         }
     }
 

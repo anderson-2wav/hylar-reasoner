@@ -76,6 +76,12 @@ Dictionary.prototype.put = function(fact, graph) {
     graph = this.resolveGraph(graph);
 
     try {
+        // 2wav experiment... reasoner has created facts
+        // with literal subjects, e.g. "The Friend of a Friend (FOAF) RDF vocabulary, described using W3C RDF Schema and the Web Ontology L      anguage."^^<http://www.w3.org/2001/XMLSchema#string> <http://www.w3.org/1999/02/22-rdf-syntax-ns#typ      e> <http://www.w3.org/2001/XMLSchema#string> .
+        if (fact.subject.indexOf(`"`) === 0) {
+            console.log("skip Fact with literal subject", fact.subject);
+            return;
+        }
         if(fact.predicate === 'FALSE') {
             this.dict[graph]['__FALSE__'] = [fact];
         } else {
@@ -141,7 +147,7 @@ Dictionary.prototype.values = function(graph) {
 };
 
 /**
- * Get all explicit full dictionary graph as turtle.
+ * Get all explicit facts from full dictionary graph as turtle.
  * @returns {Array}
  */
 Dictionary.prototype.explicitGraphs = function(graph) {
@@ -153,6 +159,36 @@ Dictionary.prototype.explicitGraphs = function(graph) {
         })
     }
     return explicitGraphs
+}
+
+/**
+ * Get all explicit facts from full dictionary graph as turtle.
+ * @returns {Array}
+ */
+Dictionary.prototype.explicitGraphs = function(graph) {
+    let explicitGraphs = []
+    for (let graph in this.dict) {
+        explicitGraphs.push({
+            name: graph,
+            content: ParsingInterface.factsToTurtle(Logics.getOnlyExplicitFacts(this.values(graph)))
+        })
+    }
+    return explicitGraphs
+}
+
+/**
+ * Get all all facts from full dictionary graph as turtle.
+ * @returns {Array}
+ */
+Dictionary.prototype.allGraphsAsTtl = function(graph) {
+    let allTriples = []
+    for (let graph in this.dict) {
+        allTriples.push({
+            name: graph,
+            content: ParsingInterface.factsToTurtle(this.values(graph))
+        })
+    }
+    return allTriples
 }
 
 /**

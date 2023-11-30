@@ -1,3 +1,4 @@
+/* eslint-disable */
 /*
  * Created by MT on 20/11/2015.
  */
@@ -33,7 +34,7 @@ String.prototype.format = function() {
     }
 };
 
-    
+
 ParsingInterface = {
     /**
      * Transforms a triple into a fact.
@@ -84,18 +85,27 @@ ParsingInterface = {
 
         if (entityStr === undefined) return false;
 
+        // this seems to exclude blankNodePattern
         if (entityStr.startsWith('_')) {
             return entityStr;
         }
+        // 2wav experiment rdfparser seems to dislike bare blanknode refs.
+        // I may have been wrong about that!
+        // if (entityStr.match(blankNodePattern)) {
+        //     console.log("returning blank node as ", '<' + entityStr + '>');
+        //     return '<' + entityStr + '>';
+        // }
+
 
         if (entityStr.match(dblQuoteInStrPattern)) {
             dblQuoteMatch = entityStr.match(dblQuoteInStrPattern);
-            entityStr = dblQuoteMatch[1] + dblQuoteMatch[2].replace(/(")/g, "'") + dblQuoteMatch[3]; //temporary ; has to be debbuged asap            
+            entityStr = dblQuoteMatch[1] + dblQuoteMatch[2].replace(/(")/g, "'") + dblQuoteMatch[3]; //temporary ; has to be debbuged asap
         }
 
         if (entityStr.match(literalPattern)) {
             return entityStr.replace(literalPattern, '$1<$2>');
-        } else if(entityStr.match(blankNodePattern) || entityStr.match(variablePattern) || entityStr.match(typeOfDatatypePattern) || entityStr.match(dblQuoteInStrPattern)) {
+        }
+        else if(entityStr.match(blankNodePattern) || entityStr.match(variablePattern) || entityStr.match(typeOfDatatypePattern) || entityStr.match(dblQuoteInStrPattern)) {
             return entityStr;
         } else {
             return '<' + entityStr + '>';

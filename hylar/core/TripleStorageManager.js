@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Created by pc on 20/11/2015.
  */
@@ -44,11 +45,11 @@ TripleStorageManager.prototype.init = async function() {
  * @returns {*}
  */
 TripleStorageManager.prototype.query = function(query) {
-    var deferred = q.defer();    
+    var deferred = q.defer();
     query = query.replace(/\\/g, '').replace(/(\n|\r)/g, ' ');
-    try {      
+    try {
         this.storage.execute(query, function (err, r) {
-            if(err) {            
+            if(err) {
                 deferred.reject(new Error(`(SPARQL) ${err}`));
             } else {
                 deferred.resolve(r !== undefined ? r : true)
@@ -69,7 +70,7 @@ TripleStorageManager.prototype.query = function(query) {
 TripleStorageManager.prototype.load = function(data, format) {
     var deferred = q.defer();
 
-    this.storage.load(format, data, function (err, r) {                
+    this.storage.load(format, data, function (err, r) {
         if(err) {
             deferred.reject(err);
         } else {

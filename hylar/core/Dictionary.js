@@ -79,7 +79,7 @@ Dictionary.prototype.put = function(fact, graph) {
         // 2wav experiment... reasoner has created facts
         // with literal subjects, e.g. "The Friend of a Friend (FOAF) RDF vocabulary, described using W3C RDF Schema and the Web Ontology L      anguage."^^<http://www.w3.org/2001/XMLSchema#string> <http://www.w3.org/1999/02/22-rdf-syntax-ns#typ      e> <http://www.w3.org/2001/XMLSchema#string> .
         if (fact.subject.indexOf(`"`) === 0) {
-            console.log("skip Fact with literal subject", fact.subject);
+            // console.log("skip Fact with literal subject", fact.subject);
             return;
         }
         if(fact.predicate === 'FALSE') {

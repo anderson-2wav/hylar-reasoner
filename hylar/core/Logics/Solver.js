@@ -1,7 +1,7 @@
 /**
  * Created by pc on 27/01/2016.
  */
-
+/* eslint-disable */
 var Fact = require('./Fact');
 var Logics = require('./Logics');
 var Utils = require('../Utils');
@@ -25,15 +25,15 @@ Solver = {
      */
     evaluateRuleSet: function(rs, facts, doTagging, resolvedImplicitFactSet) {
         var deferred = q.defer(), promises = [], cons = [], filteredFacts;
-        for (var key in rs) {            
+        for (var key in rs) {
             if (doTagging) {
                 promises.push(this.evaluateThroughRestrictionWithTagging(rs[key], facts, resolvedImplicitFactSet));
             } else {
                 promises.push(this.evaluateThroughRestriction(rs[key], facts));
             }
         }
-        try {                    
-            q.all(promises).then(function (consTab) {                
+        try {
+            q.all(promises).then(function (consTab) {
                 for (var i = 0; i < consTab.length; i++) {
                     cons = cons.concat(consTab[i]);
                 }
@@ -53,21 +53,31 @@ Solver = {
      * @returns {Array}
      */
     evaluateThroughRestriction: function(rule, facts) {
+        console.log(`evaluate rule ${rule.name}`);
         var mappingList = this.getMappings(rule, facts),
             consequences = [], deferred = q.defer();
 
         try {
             this.checkOperators(rule, mappingList);
-            
+
             for (var i = 0; i < mappingList.length; i++) {
                 if (mappingList[i]) {
+                    const mapping = mappingList[i];
                     // Replace mappings on all consequences
-                    for (var j = 0; j < rule.consequences.length; j++) {                        
-                        consequences.push(this.substituteFactVariables(mappingList[i], rule.consequences[j], [], rule));
-                        
+                    for (var j = 0; j < rule.consequences.length; j++) {
+                        const consequence= this.substituteFactVariables(mapping, rule.consequences[j], [], rule);
+                        // right here, keep from creating useless broken inferences like
+                        //"XYZ" rdf:type xsd:string
+                        if (consequence.subject?.[0] === '"') {
+                            // console.log(`ignore consequence for subject: ${consequence.subject}`);
+                            continue;
+                        }
+                        // console.log(`${rule.name} add consequence for mapping ${i}`);
+                        consequences.push(consequence);
                     }
                 }
             }
+            console.log(`return ${consequences.length} consequences for rule ${rule.name}`);
             deferred.resolve(consequences);
         } catch(e) {
             deferred.reject(e);
@@ -148,7 +158,7 @@ Solver = {
         while (i < rule.causes.length) {
             mappingList = this.substituteNextCauses(mappingList, rule.causes[i+1], facts, rule.constants, rule);
             i++;
-        }        
+        }
         return mappingList;
     },
 
@@ -215,19 +225,19 @@ Solver = {
      */
     factMatches: function(fact, ruleFact, mapping, constants, rule) {
         var localMapping = {};
-    
-        // Checks and update localMapping if matches     
+
+        // Checks and update localMapping if matches
         if (!this.factElemMatches(fact.predicate, ruleFact.predicate, mapping, localMapping)) {
             return false;
-        }        
+        }
         if (!this.factElemMatches(fact.object, ruleFact.object, mapping, localMapping)) {
             return false;
         }
         if (!this.factElemMatches(fact.subject, ruleFact.subject, mapping, localMapping)) {
             return false;
         }
-        
-        emitter.emit('rule-fired', rule.name);        
+
+        emitter.emit('rule-fired', rule.name);
 
         // If an already existing uri has been mapped...
         /*for (var key in localMapping) {
@@ -253,7 +263,7 @@ Solver = {
         }
 
         // The new mapping is updated
-        return localMapping;    
+        return localMapping;
     },
 
     factElemMatches: function(factElem, causeElem, globalMapping, localMapping) {
@@ -305,7 +315,7 @@ Solver = {
         }
         subject = this.substituteElementVariablesWithMapping(notYetSubstitutedFact.subject, mapping);
         predicate = this.substituteElementVariablesWithMapping(notYetSubstitutedFact.predicate, mapping);
-        object = this.substituteElementVariablesWithMapping(notYetSubstitutedFact.object, mapping);        
+        object = this.substituteElementVariablesWithMapping(notYetSubstitutedFact.object, mapping);
 
         substitutedFact = new Fact(predicate, subject, object, [], false);
 

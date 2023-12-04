@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Created by Spadon on 11/09/2015.
  */
@@ -64,7 +65,7 @@ ReasoningEngine = {
      * @param FeAdd set of assertions to be added
      * @param FeDel set of assertions to be deleted
      */
-    incremental: function (FeAdd, FeDel, F, R) {        
+    incremental: function (FeAdd, FeDel, F, R) {
         var Rdel = [], Rred = [], Rins = [],
             FiDel = [], FiAdd = [],
             FiDelNew = [], FiAddNew = [],
@@ -77,27 +78,30 @@ ReasoningEngine = {
 
             deferred = q.defer(),
 
-            startAlgorithm = function() {                
+            startAlgorithm = function() {
+                console.log("incremental startAlgorithm");
                 overDeletionEvaluationLoop();
             },
 
-            overDeletionEvaluationLoop = function() {                
-                FiDel = Utils.uniques(FiDel, FiDelNew);                
-                Rdel = Logics.restrictRuleSet(R, Utils.uniques(FeDel, FiDel));                                
+            overDeletionEvaluationLoop = function() {
+                console.log("incremental overDeletionEvaluationLoop");
+                FiDel = Utils.uniques(FiDel, FiDelNew);
+                Rdel = Logics.restrictRuleSet(R, Utils.uniques(FeDel, FiDel));
                 Solver.evaluateRuleSet(Rdel, Utils.uniques(Utils.uniques(Fi, Fe), FeDel))
                     .then(function(values) {
                         FiDelNew = values.cons;
                         if (Utils.uniques(FiDel, FiDelNew).length > FiDel.length) {
-                            overDeletionEvaluationLoop();                            
+                            overDeletionEvaluationLoop();
                         } else {
                             Fe = Logics.minus(Fe, FeDel);
                             Fi = Logics.minus(Fi, FiDel);
                             rederivationEvaluationLoop();
-                        }                        
+                        }
                     });
             },
 
             rederivationEvaluationLoop = function() {
+                console.log("incremental rederivationEvaluationLoop");
                 FiAdd = Utils.uniques(FiAdd, FiAddNew);
                 Rred = Logics.restrictRuleSet(R, FiDel);
                 Solver.evaluateRuleSet(Rred, Utils.uniques(Fe, Fi))
@@ -110,19 +114,21 @@ ReasoningEngine = {
                         }
                     });
             },
-            
-            insertionEvaluationLoop = function() {    
+
+            insertionEvaluationLoop = function() {
+                console.log("incremental insertionEvaluationLoop");
                 FiAdd = Utils.uniques(FiAdd, FiAddNew);
                 superSet = Utils.uniques(Utils.uniques(Utils.uniques(Fe, Fi), FeAdd), FiAdd);
-                Rins = Logics.restrictRuleSet(R, superSet);                
+                Rins = Logics.restrictRuleSet(R, superSet);
+                console.log(`incremental insertionEvaluationLoop evaluate restricted set ${Rins.length} of ${R.length} rules.`);
                 Solver.evaluateRuleSet(Rins, superSet)
                     .then(function(values) {
-                        FiAddNew = values.cons;                       
+                        FiAddNew = values.cons;
                         if (!Utils.containsSubset(FiAdd, FiAddNew)) {
                             insertionEvaluationLoop();
-                        } else {                
+                        } else {
                             additions = Utils.uniques(FeAdd, FiAdd);
-                            deletions = Utils.uniques(FeDel, FiDel);                            
+                            deletions = Utils.uniques(FeDel, FiDel);
                             deferred.resolve({
                                 additions: additions,
                                 deletions: deletions
@@ -184,7 +190,7 @@ ReasoningEngine = {
                 Rins = Logics.restrictRuleSet(R, F);
                 Solver.evaluateRuleSet(Rins, F, true)
                     .then(function(values) {
-                        FiAdd = values.cons;                        
+                        FiAdd = values.cons;
                         if (Logics.unify(FiAdd, Fi)) {
                             setTimeout(evaluationLoop, 1);
                         } else {
@@ -204,7 +210,7 @@ ReasoningEngine = {
         startAlgorithm();
 
         return deferred.promise;
-    }    
+    }
 };
 
 module.exports = {

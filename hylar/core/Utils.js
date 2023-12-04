@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Created by Spadon on 13/02/2015.
  */
@@ -131,22 +132,22 @@ Utils = {
             return true;
         }
         return false;
-    },    
+    },
 
     asCHRAtom: function(elem, mapping) {
         if(Logics.isVariable(elem)) {
             if(mapping[elem] === undefined) {
                 if (mapping.__lastCHRVar) {
-                    mapping.__lastCHRVar = String.fromCharCode(mapping.__lastCHRVar.charCodeAt(0)+1);                                        
+                    mapping.__lastCHRVar = String.fromCharCode(mapping.__lastCHRVar.charCodeAt(0)+1);
                 } else {
-                    mapping.__lastCHRVar = 'A';                    
+                    mapping.__lastCHRVar = 'A';
                 }
                 mapping[elem] = mapping.__lastCHRVar;
             }
             return mapping[elem];
         } else {
             return '"' + elem.replace(/[^a-zA-Z]/g,'') + '"';
-        }        
+        }
     }
 }
 

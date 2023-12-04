@@ -274,9 +274,11 @@ class Hylar {
             default:
                 try {
                     // put in line breaks for easier parse debugging:
-                    ontologyTxt = ontologyTxt.replace(/ \. /g," . \n");
-                    // rdfstore parser freaks out at backslash
-                    ontologyTxt = ontologyTxt.replace(/\\/g,"/");
+                    if (mimeType === "text/turtle") {
+                        ontologyTxt = ontologyTxt.replace(/ \. /g," . \n");
+                        // rdfstore N3 parser freaks out at backslash,
+                        ontologyTxt = ontologyTxt.replace(/\\/g,"/");
+                    }
                     console.log(`loading ontologyTxt.length=${ontologyTxt.length} writing to "/tmp/ontologyTxt"`);
                     fs.writeFileSync("/tmp/ontologyTxt",ontologyTxt);
                     let rCt = await this.sm.load(ontologyTxt, mimeType)
@@ -673,11 +675,12 @@ class Hylar {
     async treatUpdate(update, type, syncCB, persistDerivations) {
         syncCB = syncCB || function(result) {};
         if (typeof persistDerivations === "undefined") persistDerivations = true;
-        console.log("Treat update with persist: " + persistDerivations);
+        Hylar.notify("Start update with persist: " + persistDerivations);
         let graph = update.name,
             iTriples = [],
             dTriples = [],
-            FeIns, FeDel, F = this.getDictionary().values(graph),
+            FeIns, FeDel,
+            F = this.getDictionary().values(graph),
             deleteQueryBody, promises = [],
             initialResponse = Utils.emptyPromise([ { triples:[] } ]);
 
@@ -703,19 +706,20 @@ class Hylar {
                 dTriples = dTriples.concat(results[i].triples);
             }
         }
-        Hylar.notify('Starting ParsingInterface.triplesToFacts (iTriples).');
+        // Hylar.notify('Starting ParsingInterface.triplesToFacts (iTriples).');
         FeIns = ParsingInterface.triplesToFacts(iTriples, true, (this.rMethod == Reasoner.process.it.incrementally));
-        Hylar.notify('Starting ParsingInterface.triplesToFacts (dTriples).');
+        // Hylar.notify('Starting ParsingInterface.triplesToFacts (dTriples).');
         FeDel = ParsingInterface.triplesToFacts(dTriples, true, (this.rMethod == Reasoner.process.it.incrementally));
         const startReasoning = Date.now();
-        Hylar.notify('Starting Reasoner.evaluate.');
-        let derivations = await Reasoner.evaluate(FeIns, FeDel, F.concat(this.axioms), this.rMethod, this.rules,)
+        const KB = F.concat(this.axioms);
+        Hylar.notify(`Starting Reasoner.evaluate. ${FeIns.length} inserted. ${FeDel.length} deleted. ${KB.length} existing facts.`);
+        let derivations = await Reasoner.evaluate(FeIns, FeDel, KB, this.rMethod, this.rules,)
         const endReasoning = Date.now();
         Hylar.notify(`Finished Reasoner.evaluate in ${Math.round((endReasoning-startReasoning)/1000)} seconds.`);
         // Use callback to pass derivations back up the chain to the external application
         syncCB(derivations);
 
-        // Only actually update the persistent store if we intend to
+        // Only actually update the fact store if we intend to
         if (persistDerivations === true) {
           this.registerDerivations(derivations, graph);
 

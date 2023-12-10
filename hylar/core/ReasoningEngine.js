@@ -79,7 +79,7 @@ ReasoningEngine = {
             deferred = q.defer(),
 
             startAlgorithm = function() {
-                Hylar.notify("incremental startAlgorithm");
+                console.log("incremental startAlgorithm");
                 overDeletionEvaluationLoop();
             },
 
@@ -129,7 +129,7 @@ ReasoningEngine = {
                     superSet = FiAddNew;
                 }
                 // superSet = Utils.uniques(Utils.uniques(Utils.uniques(Fe, Fi), FeAdd), FiAdd);
-                Hylar.notify(`incremental insertionEvaluationLoop #${insertionLoopCt} over ${superSet.length} facts.`);
+                console.log(`incremental insertionEvaluationLoop #${insertionLoopCt} over ${superSet.length} facts.`);
                 if (FiAdd.length) {
                     // TODO experimental... why use the entire superset here?
                     // don't we only care about rules that might touch the inserted set?

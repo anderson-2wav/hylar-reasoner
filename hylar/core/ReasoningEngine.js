@@ -65,11 +65,11 @@ ReasoningEngine = {
      * @param FeAdd set of assertions to be added
      * @param FeDel set of assertions to be deleted
      */
-    incremental: function (FeAdd, FeDel, F, R) {
+    incremental: function (FeAdd, FeDel, F, R, whitelist) {
         var Rdel = [], Rred = [], Rins = [],
             FiDel = [], FiAdd = [],
             FiDelNew = [], FiAddNew = [],
-            superSet = [],
+            superSet = [], insertionLoopCt = 0,
 
             additions, deletions,
 
@@ -79,14 +79,15 @@ ReasoningEngine = {
             deferred = q.defer(),
 
             startAlgorithm = function() {
-                console.log("incremental startAlgorithm");
+                Hylar.notify("incremental startAlgorithm");
                 overDeletionEvaluationLoop();
             },
 
             overDeletionEvaluationLoop = function() {
-                console.log("incremental overDeletionEvaluationLoop");
+                //console.log("incremental overDeletionEvaluationLoop");
                 FiDel = Utils.uniques(FiDel, FiDelNew);
                 Rdel = Logics.restrictRuleSet(R, Utils.uniques(FeDel, FiDel));
+                Solver._phase = "deletion"; // temporary hack!
                 Solver.evaluateRuleSet(Rdel, Utils.uniques(Utils.uniques(Fi, Fe), FeDel))
                     .then(function(values) {
                         FiDelNew = values.cons;
@@ -101,9 +102,10 @@ ReasoningEngine = {
             },
 
             rederivationEvaluationLoop = function() {
-                console.log("incremental rederivationEvaluationLoop");
+                //console.log("incremental rederivationEvaluationLoop");
                 FiAdd = Utils.uniques(FiAdd, FiAddNew);
                 Rred = Logics.restrictRuleSet(R, FiDel);
+                Solver._phase = "rederivation"; // temporary hack!
                 Solver.evaluateRuleSet(Rred, Utils.uniques(Fe, Fi))
                     .then(function(values) {
                         FiAddNew = values.cons;
@@ -116,12 +118,32 @@ ReasoningEngine = {
             },
 
             insertionEvaluationLoop = function() {
-                console.log("incremental insertionEvaluationLoop");
+                insertionLoopCt++;
                 FiAdd = Utils.uniques(FiAdd, FiAddNew);
-                superSet = Utils.uniques(Utils.uniques(Utils.uniques(Fe, Fi), FeAdd), FiAdd);
-                Rins = Logics.restrictRuleSet(R, superSet);
-                console.log(`incremental insertionEvaluationLoop evaluate restricted set ${Rins.length} of ${R.length} rules.`);
-                Solver.evaluateRuleSet(Rins, superSet)
+                if (insertionLoopCt === 1) {
+                    // the first time through, reason over all new E and I
+                    superSet = Utils.uniques(FiAdd, FeAdd);
+                }
+                else {
+                    // subsequent recursions, only reason over new I from last round
+                    superSet = FiAddNew;
+                }
+                // superSet = Utils.uniques(Utils.uniques(Utils.uniques(Fe, Fi), FeAdd), FiAdd);
+                Hylar.notify(`incremental insertionEvaluationLoop #${insertionLoopCt} over ${superSet.length} facts.`);
+                if (FiAdd.length) {
+                    // TODO experimental... why use the entire superset here?
+                    // don't we only care about rules that might touch the inserted set?
+                    // in practice this makes very little difference in outcome,
+                    Rins = Logics.restrictRuleSet(R, FiAdd);
+                }
+                else {
+                    Rins = Logics.restrictRuleSet(R, superSet);
+                }
+
+                // console.log(`incremental insertionEvaluationLoop evaluate restricted set ${Rins.length} of ${R.length} rules.`);
+                Solver._phase = "insertion"; // temporary hack!
+                Solver._round = insertionLoopCt;
+                Solver.evaluateRuleSet(Rins, superSet, undefined, undefined, whitelist)
                     .then(function(values) {
                         FiAddNew = values.cons;
                         if (!Utils.containsSubset(FiAdd, FiAddNew)) {

@@ -31,9 +31,9 @@ module.exports = {
      * @param alg The reasoning algorithm (function)
      * @returns {*}
      */
-    evaluate: function(fI, fD, F, alg, rules) {
+    evaluate: function(fI, fD, F, alg, rules, whitelist) {
         if (!alg) alg = ReasoningEngine.incremental;
-        return alg(fI, fD, F, rules);
+        return alg(fI, fD, F, rules, whitelist);
     },
 
     /**

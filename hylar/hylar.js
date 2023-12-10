@@ -110,7 +110,8 @@ class Hylar {
      */
     async _setEntailment(entailment) {
         this.entailment = entailment != null ? entailment : 'owl2rl'
-        Reasoner.updateRuleDependencies(this.rules);
+        Hylar.notify("Ignoring rule dependencies. I don't think they are used.");
+        // Reasoner.updateRuleDependencies(this.rules);
     }
 
     /**
@@ -313,10 +314,11 @@ class Hylar {
      * Launches a SPARQL query against the triplestore.
      * @param query The SPARQL query text
      * @param reasoningMethod The desired reasoning method if inserting/deleting
-     * @param syncCB callback function
-     * @param persistDerivations whether or not we're going to persist
+     * @param [syncCB] callback function
+     * @param [persistDerivations] whether or not we're going to persist
+     * @param {string[]} [whitelist] subject uris
      */
-    async query(query, reasoningMethod, syncCB, persistDerivations) {
+    async query(query, reasoningMethod, syncCB, persistDerivations, whitelist) {
         syncCB = syncCB || function(result) {};
         // Default persistDerivations to true like it would normally behave
         if (typeof persistDerivations === "undefined") {
@@ -351,7 +353,7 @@ class Hylar {
                     // Put them back in a simple update data manner to provide inner-graph inference
                     return this.query(parsingInt, reasoningMethod, syncCB, persistDerivations);
                 } else {
-                    return this.treatUpdateWithGraph(query, syncCB, persistDerivations);
+                    return this.treatUpdateWithGraph(query, syncCB, persistDerivations, whitelist);
                 }
                 break;
 
@@ -450,7 +452,7 @@ class Hylar {
      * High-level treatUpdate that takes graphs into account.
      * @returns Promise
      */
-    async treatUpdateWithGraph(query, syncCB, persistDerivations) {
+    async treatUpdateWithGraph(query, syncCB, persistDerivations, whitelist) {
         syncCB = syncCB || function(result) {};
         if (typeof persistDerivations === "undefined") persistDerivations = true;
 
@@ -464,7 +466,7 @@ class Hylar {
                 updates = sparql.updates[i].delete;
             }
             for (var j = 0; j < updates.length; j++) {
-                promises.push(this.treatUpdate(updates[j], sparql.updates[i].updateType, syncCB, persistDerivations));
+                promises.push(this.treatUpdate(updates[j], sparql.updates[i].updateType, syncCB, persistDerivations, whitelist));
             }
         }
 
@@ -672,7 +674,7 @@ class Hylar {
      * @param sparql The query text.
      * @returns {Object} The results of this query.
      */
-    async treatUpdate(update, type, syncCB, persistDerivations) {
+    async treatUpdate(update, type, syncCB, persistDerivations, whitelist) {
         syncCB = syncCB || function(result) {};
         if (typeof persistDerivations === "undefined") persistDerivations = true;
         Hylar.notify("Start update with persist: " + persistDerivations);
@@ -713,7 +715,7 @@ class Hylar {
         const startReasoning = Date.now();
         const KB = F.concat(this.axioms);
         Hylar.notify(`Starting Reasoner.evaluate. ${FeIns.length} inserted. ${FeDel.length} deleted. ${KB.length} existing facts.`);
-        let derivations = await Reasoner.evaluate(FeIns, FeDel, KB, this.rMethod, this.rules,)
+        let derivations = await Reasoner.evaluate(FeIns, FeDel, KB, this.rMethod, this.rules, whitelist);
         const endReasoning = Date.now();
         Hylar.notify(`Finished Reasoner.evaluate in ${Math.round((endReasoning-startReasoning)/1000)} seconds.`);
         // Use callback to pass derivations back up the chain to the external application

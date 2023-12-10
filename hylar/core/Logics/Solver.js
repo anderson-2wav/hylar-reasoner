@@ -9,6 +9,7 @@ var Utils = require('../Utils');
 var emitter = require('../Emitter');
 
 var q = require('q');
+var _ = require('lodash');
 
 
 /**
@@ -23,13 +24,14 @@ Solver = {
      * @param facts
      * @returns Array of the evaluation.
      */
-    evaluateRuleSet: function(rs, facts, doTagging, resolvedImplicitFactSet) {
+    evaluateRuleSet: function(rs, facts, doTagging, resolvedImplicitFactSet, whitelist) {
         var deferred = q.defer(), promises = [], cons = [], filteredFacts;
         for (var key in rs) {
             if (doTagging) {
                 promises.push(this.evaluateThroughRestrictionWithTagging(rs[key], facts, resolvedImplicitFactSet));
             } else {
-                promises.push(this.evaluateThroughRestriction(rs[key], facts));
+                // console.log(`evaluate rule #${key}: ${rs[key].name}`);
+                promises.push(this.evaluateThroughRestriction(rs[key], facts, whitelist));
             }
         }
         try {
@@ -52,11 +54,11 @@ Solver = {
      * @param facts
      * @returns {Array}
      */
-    evaluateThroughRestriction: function(rule, facts) {
-        console.log(`evaluate rule ${rule.name}`);
-        var mappingList = this.getMappings(rule, facts),
-            consequences = [], deferred = q.defer();
-
+    evaluateThroughRestriction: function(rule, facts, whitelist) {
+        // console.log(`evaluate rule ${rule.name}`);
+        var consequences = [], deferred = q.defer();
+        // find all the matching ?x variables in causes
+        var mappingList = this.getMappings(rule, facts);
         try {
             this.checkOperators(rule, mappingList);
 
@@ -72,8 +74,15 @@ Solver = {
                             // console.log(`ignore consequence for subject: ${consequence.subject}`);
                             continue;
                         }
-                        // console.log(`${rule.name} add consequence for mapping ${i}`);
-                        consequences.push(consequence);
+                        if (whitelist) {
+                            if (whitelist.includes(consequence.subject)) {
+                                consequences.push(consequence);
+                            }
+                        }
+                        else {
+                            // console.log(`${rule.name} add consequence for mapping ${i}`);
+                            consequences.push(consequence);
+                        }
                     }
                 }
             }
@@ -153,10 +162,19 @@ Solver = {
     getMappings: function(rule, facts, consequences) {
         var i = 0, mappingList, causes;
 
-        mappingList = [rule.causes[i]]; // Init with first cause
+        var currentCauses = [rule.causes[i]]; // Init with first cause
 
         while (i < rule.causes.length) {
-            mappingList = this.substituteNextCauses(mappingList, rule.causes[i+1], facts, rule.constants, rule);
+            mappingList = this.substituteNextCauses(currentCauses, rule.causes[i+1], facts, rule.constants, rule);
+
+            // each cause in currentCauses may have a _nextCauses
+            const nextCauses = [];
+            for (const c of currentCauses) {
+                if (c._nextCauses) {
+                    nextCauses.push(...c._nextCauses);
+                }
+            }
+            currentCauses = nextCauses;
             i++;
         }
         return mappingList;
@@ -169,18 +187,30 @@ Solver = {
      * @param currentCauses
      * @param nextCause
      * @param facts
-     * @returns {Array}
+     * @returns {Mapping[]} after last cause, returns complete mappings list
      */
     substituteNextCauses: function(currentCauses, nextCause, facts, constants, rule) {
-        var substitutedNextCauses = [],
-            mappings = [];
+        var mappings = [];
 
         for (var i = 0; i < currentCauses.length; i++) {
-
+            var currentCause = currentCauses[i];
+            currentCause._seen = currentCause._seen ?? {};
+            currentCause._nextCauses = currentCause._nextCauses ?? [];
+            let evalCt = 0;
+            let skippedCt = 0;
             for (var j = 0; j < facts.length; j++) {
+                var fkey = facts[j].toString();
+                const ckey = currentCause.toString();
+                if (currentCause._seen[fkey]) {
+                    // console.log(`rule ${rule.name} cause ${ckey} already seen ${fkey}`);
+                    skippedCt++;
+                    continue;
+                }
+                evalCt++;
+                currentCause._seen[fkey] = 1;
 
                 // Get the mapping of the current cause ...
-                var mapping = currentCauses[i].mapping,
+                var mapping = currentCause.mapping,
                     substitutedNextCause,
                     newMapping;
                 // ... or build a fresh one if it does not exist
@@ -190,7 +220,7 @@ Solver = {
                 }
 
                 // Update the mapping using pattern matching
-                newMapping = this.factMatches(facts[j], currentCauses[i], mapping, constants, rule);
+                newMapping = this.factMatches(facts[j], currentCause, mapping, constants, rule);
 
                 // If the current fact matches the current cause ...
                 if (newMapping) {
@@ -199,20 +229,16 @@ Solver = {
                         // Substitute the next cause's variable with the new mapping
                         substitutedNextCause = this.substituteFactVariables(newMapping, nextCause, [], rule);
                         substitutedNextCause.mapping = newMapping;
-                        substitutedNextCauses.push(substitutedNextCause);
+                        currentCause._nextCauses.push(substitutedNextCause);
                     } else {
-                        // Otherwise, add the new mapping to the global mapping array
+                        // Otherwise, add the new mapping to the returned mapping array
                         mappings.push(newMapping);
                     }
                 }
             }
         }
 
-        if(nextCause) {
-            return substitutedNextCauses;
-        } else {
-            return mappings;
-        }
+        return mappings;
     },
 
     /**
@@ -306,11 +332,11 @@ Solver = {
      * @param notYetSubstitutedFact
      * @param causedBy
      * @param rule
-     * @returns {*}
+     * @returns {Fact}
      */
     substituteFactVariables: function(mapping, notYetSubstitutedFact, causedBy, rule) {
         var subject, predicate, object, substitutedFact;
-        if (mapping == {}) {
+        if (mapping == {}) { // does this work? :-/
             return notYetSubstitutedFact;
         }
         subject = this.substituteElementVariablesWithMapping(notYetSubstitutedFact.subject, mapping);

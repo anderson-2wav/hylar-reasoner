@@ -89,10 +89,10 @@ Fact.prototype = {
         if(this.falseFact) {
             chrized = 'FALSE()';
         } else {
-            chrized = 't(' + 
-                this.subjectCHR(mapping) + ', ' + 
-                this.predicateCHR(mapping) + ', ' + 
-                this.objectCHR(mapping) + 
+            chrized = 't(' +
+                this.subjectCHR(mapping) + ', ' +
+                this.predicateCHR(mapping) + ', ' +
+                this.objectCHR(mapping) +
             ')';
         }
 
@@ -223,11 +223,11 @@ Fact.prototype = {
         return factsDerived;
     },
 
-    doPropagate: function(keptFact) {        
+    doPropagate: function(keptFact) {
         if (this.__propagate__) {
             for (var i = 0; i < this.__propagate__.consequences.length; i++) {
                 if (this.__propagate__.consequences[i] == this) {
-                    this.__propagate__.consequences[i] = keptFact;         
+                    this.__propagate__.consequences[i] = keptFact;
                 }
             }
         }

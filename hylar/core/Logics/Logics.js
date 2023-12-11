@@ -30,7 +30,7 @@ Logics = {
                 if ((subset[j] !== undefined) && (fs[i].equivalentTo(subset[j]))) {
                     fs[i].causedBy = this.uniquesCausedBy(fs[i].causedBy, subset[j].causedBy);
                     fs[i].consequences = fs[i].consequences.concat(subset[j].consequences);
-                    subset[j].doPropagate(fs[i]);                                                            
+                    subset[j].doPropagate(fs[i]);
                     delete subset[j];
                 }
             }
@@ -116,7 +116,7 @@ Logics = {
      * @returns {*}
      */
     causeMatchesFact: function(cause, fact) {
-        return this.causeMemberMatchesFactMember(cause.predicate, fact.predicate) 
+        return this.causeMemberMatchesFactMember(cause.predicate, fact.predicate)
             && this.causeMemberMatchesFactMember(cause.subject, fact.subject)
             && this.causeMemberMatchesFactMember(cause.object, fact.object);
     },
@@ -225,11 +225,11 @@ Logics = {
                 newAdditions.push(additions[i]);
             }
         }
-        
+
         for (i= 0; i < deletions.length; i++) {
             index = kbMap.indexOf(deletions[i].toRaw());
             if (index !== -1 && kb[index].explicit) {
-                kb[index].valid = false;                
+                kb[index].valid = false;
             }
         }
 
@@ -315,8 +315,8 @@ Logics = {
             if (fs[i] !== undefined) {
                 if (foundFactIndex = fs[i].appearsIn(unifiedSet)) {
                     unifiedSet[foundFactIndex].causedBy = this.uniquesCausedBy(fs[i].causedBy, unifiedSet[foundFactIndex].causedBy);
-                    unifiedSet[foundFactIndex].consequences = Utils.uniques(fs[i].consequences, unifiedSet[foundFactIndex].consequences);                    
-                    fs[i].doPropagate(unifiedSet[foundFactIndex]);                   
+                    unifiedSet[foundFactIndex].consequences = Utils.uniques(fs[i].consequences, unifiedSet[foundFactIndex].consequences);
+                    fs[i].doPropagate(unifiedSet[foundFactIndex]);
                 } else {
                     unifiedSet.push(fs[i]);
                 }

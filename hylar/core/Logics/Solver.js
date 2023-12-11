@@ -55,7 +55,12 @@ Solver = {
      * @returns {Array}
      */
     evaluateThroughRestriction: function(rule, facts, whitelist) {
-        // console.log(`evaluate rule ${rule.name}`);
+        // if (rule.name === "workRoleRequiresKnowledge") {
+        //     debugger;
+        // }
+        if (Solver._verbose) {
+            console.log(`Begin evaluate ${rule.name}`);
+        }
         var consequences = [], deferred = q.defer();
         // find all the matching ?x variables in causes
         var mappingList = this.getMappings(rule, facts);
@@ -86,7 +91,9 @@ Solver = {
                     }
                 }
             }
-            console.log(`return ${consequences.length} consequences for rule ${rule.name}`);
+            if (Solver._verbose) {
+                console.log(`return ${consequences.length} consequences for rule ${rule.name}`);
+            }
             deferred.resolve(consequences);
         } catch(e) {
             deferred.reject(e);
@@ -194,13 +201,23 @@ Solver = {
 
         for (var i = 0; i < currentCauses.length; i++) {
             var currentCause = currentCauses[i];
+            const ckey = currentCause.toString();
+            if (Solver._verbose && j>0 && j % 10000 === 0) {
+                console.log(`Rule ${rule.name} cause ${ckey} eval ${j} of ${facts.length} facts.`);
+            }
+            if (!currentCause._seen) {
+                if (Solver._verbose) {
+                    console.log(`cause ${ckey} has never seen facts.`);
+                    console.log(`one time evaluate the whole KB`);
+                }
+                facts = Solver._KB;
+            }
             currentCause._seen = currentCause._seen ?? {};
             currentCause._nextCauses = currentCause._nextCauses ?? [];
             let evalCt = 0;
             let skippedCt = 0;
             for (var j = 0; j < facts.length; j++) {
                 var fkey = facts[j].toString();
-                const ckey = currentCause.toString();
                 if (currentCause._seen[fkey]) {
                     // console.log(`rule ${rule.name} cause ${ckey} already seen ${fkey}`);
                     skippedCt++;
@@ -209,6 +226,9 @@ Solver = {
                 evalCt++;
                 currentCause._seen[fkey] = 1;
 
+                if (Solver._verbose && j>0 && j % 10000 === 0) {
+                    console.log(`Rule ${rule.name} cause ${ckey} eval ${j} of ${facts.length} facts.`);
+                }
                 // Get the mapping of the current cause ...
                 var mapping = currentCause.mapping,
                     substitutedNextCause,
@@ -237,6 +257,11 @@ Solver = {
                 }
             }
         }
+        // // if the next cause does not depend on any variables from this cause,
+        // // then let it see all facts, because future _nextCauses may need it
+        // if (nextCause && this.causesAreIndependent(currentCause,nextCause)) {
+        //     currentCause._nextCauses.push(nextCause);
+        // }
 
         return mappings;
     },
@@ -356,6 +381,20 @@ Solver = {
         }
 
         return substitutedFact;
+    },
+
+    causesAreIndependent: function(cause1, cause2) {
+        const cause1Vars = [];
+        const cause2Vars = [];
+        [cause1,cause2].forEach((cause,i) => {
+            const vars = [cause1Vars,cause2Vars][i];
+            ["subject","predicate","object"].forEach((k) => {
+                if (cause[k].indexOf("?") === 0) {
+                    vars.push(cause[k]);
+                }
+            });
+        });
+        return _.intersection(cause1Vars,cause2Vars).length === 0;
     }
 };
 

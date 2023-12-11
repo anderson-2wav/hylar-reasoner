@@ -128,7 +128,9 @@ ReasoningEngine = {
                     // subsequent recursions, only reason over new I from last round
                     superSet = FiAddNew;
                 }
-                // superSet = Utils.uniques(Utils.uniques(Utils.uniques(Fe, Fi), FeAdd), FiAdd);
+                // another temporary hack
+                Solver._verbose = false;
+                Solver._KB = Utils.uniques(Utils.uniques(Utils.uniques(Fe, Fi), FeAdd), FiAdd);
                 console.log(`incremental insertionEvaluationLoop #${insertionLoopCt} over ${superSet.length} facts.`);
                 if (FiAdd.length) {
                     // TODO experimental... why use the entire superset here?

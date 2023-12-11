@@ -128,14 +128,14 @@ Rule.prototype = {
         }
         for(key in this.operatorCauses) {
             factConj += ', ' + this.operatorCauses[key].toCHR(mapping);
-        }        
+        }
         factConj = factConj.substring(2) + ' ==> ';
-        
+
         for(key in this.consequences) {
             factConj += this.consequences[key].toCHR(mapping) + ', ';
         }
         factConj = factConj.substring(0,factConj.length-2);
-        
+
         return factConj;
     }
 };

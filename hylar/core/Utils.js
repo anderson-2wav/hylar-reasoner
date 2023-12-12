@@ -4,6 +4,7 @@
  */
 
 var q = require('q');
+var md5 = require('md5');
 
 var RegularExpressions = require('./RegularExpressions');
 var EventEmitter = require('events').EventEmitter;
@@ -33,9 +34,9 @@ Utils = {
      * @param _set2
      * @returns {Array}
      */
-    uniques: function(_set1, _set2) {
+    uniques: function(...sets) {
         var hash = {}, uniq = [],
-            fullSet = _set1.concat(_set2);
+            fullSet = [].concat(...sets);
 
         for (var i = 0; i < fullSet.length; i++) {
             if (fullSet[i] !== undefined) hash[fullSet[i].toString()] = fullSet[i];
@@ -148,6 +149,12 @@ Utils = {
         } else {
             return '"' + elem.replace(/[^a-zA-Z]/g,'') + '"';
         }
+    },
+
+    stringHash: function(strings) {
+        strings = Array.isArray(strings) ? strings : [strings];
+        const str = strings.join('');
+        return md5(str);
     }
 }
 

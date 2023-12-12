@@ -20,11 +20,14 @@ var _ = require('lodash');
 Solver = {
     /**
      * Evaluates a set of rules over a set of facts.
-     * @param rs
-     * @param facts
+     * @param {Rule[]} rs
+     * @param {Fact[]} facts (new) to be evaluated
+     * @param {Fact[]} [kb] all known facts
      * @returns Array of the evaluation.
      */
-    evaluateRuleSet: function(rs, facts, doTagging, resolvedImplicitFactSet, whitelist) {
+    evaluateRuleSet: function(rs, facts, kb,  doTagging, resolvedImplicitFactSet, whitelist) {
+        this.kb = kb ?? [];
+        this.graphHash = Utils.stringHash(this.kb.map(f => f.asString));
         var deferred = q.defer(), promises = [], cons = [], filteredFacts;
         for (var key in rs) {
             if (doTagging) {
@@ -50,12 +53,13 @@ Solver = {
     /**
      * Evaluates a rule over a set of facts through
      * restriction of the rule's causes.
-     * @param rule
-     * @param facts
+     * @param {Rule} rule
+     * @param {Fact[]} facts
+     * @param {Fact[]} kb
      * @returns {Array}
      */
     evaluateThroughRestriction: function(rule, facts, whitelist) {
-        // if (rule.name === "workRoleRequiresKnowledge") {
+        // if (rule.name === "cax-sco") {
         //     debugger;
         // }
         if (Solver._verbose) {
@@ -191,9 +195,9 @@ Solver = {
      * Updates the mapping of the current cause
      * given the next cause of a rule, over a
      * set of facts.
-     * @param currentCauses
-     * @param nextCause
-     * @param facts
+     * @param {Fact[]} currentCauses
+     * @param {Fact} [nextCause]
+     * @param {Fact[]} facts new Facts to be evaluated
      * @returns {Mapping[]} after last cause, returns complete mappings list
      */
     substituteNextCauses: function(currentCauses, nextCause, facts, constants, rule) {
@@ -205,24 +209,31 @@ Solver = {
             if (Solver._verbose && j>0 && j % 10000 === 0) {
                 console.log(`Rule ${rule.name} cause ${ckey} eval ${j} of ${facts.length} facts.`);
             }
-            if (!currentCause._seen) {
+            if (this.graphHash !== currentCause.graphHash) {
                 if (Solver._verbose) {
-                    console.log(`cause ${ckey} has never seen facts.`);
-                    console.log(`one time evaluate the whole KB`);
+                    console.log(`cause ${ckey} has not seen some facts. Evaluate all.`);
+                    // if (currentCause._seen) {
+                    //     console.log(`cause ${ckey} has _seen`,Object.keys(currentCause._seen));
+                    // }
+                    // else {
+                    //     console.log(`${ckey} never _seen.`);
+                    // }
                 }
-                facts = Solver._KB;
+                facts = Utils.uniques(this.kb, facts);
             }
             currentCause._seen = currentCause._seen ?? {};
             currentCause._nextCauses = currentCause._nextCauses ?? [];
             let evalCt = 0;
             let skippedCt = 0;
             for (var j = 0; j < facts.length; j++) {
-                var fkey = facts[j].toString();
+                const fact = facts[j];
+                var fkey = fact.toString();
                 if (currentCause._seen[fkey]) {
-                    // console.log(`rule ${rule.name} cause ${ckey} already seen ${fkey}`);
+                    // console.log(`rule ${rule.name} cause ${ckey} skip OLD ${fkey}`);
                     skippedCt++;
                     continue;
                 }
+                // console.log(`rule ${rule.name} cause ${ckey} NEW ${fkey}`);
                 evalCt++;
                 currentCause._seen[fkey] = 1;
 
@@ -240,7 +251,7 @@ Solver = {
                 }
 
                 // Update the mapping using pattern matching
-                newMapping = this.factMatches(facts[j], currentCause, mapping, constants, rule);
+                newMapping = this.factMatches(fact, currentCause, mapping, constants, rule);
 
                 // If the current fact matches the current cause ...
                 if (newMapping) {
@@ -249,6 +260,7 @@ Solver = {
                         // Substitute the next cause's variable with the new mapping
                         substitutedNextCause = this.substituteFactVariables(newMapping, nextCause, [], rule);
                         substitutedNextCause.mapping = newMapping;
+                        substitutedNextCause._fromCause = currentCause;
                         currentCause._nextCauses.push(substitutedNextCause);
                     } else {
                         // Otherwise, add the new mapping to the returned mapping array
@@ -256,13 +268,12 @@ Solver = {
                     }
                 }
             }
+            // this cause has seen some new facts...
+            if (evalCt) {
+                const strs = Object.keys(currentCause._seen);
+                currentCause.graphHash = Utils.stringHash(strs);
+            }
         }
-        // // if the next cause does not depend on any variables from this cause,
-        // // then let it see all facts, because future _nextCauses may need it
-        // if (nextCause && this.causesAreIndependent(currentCause,nextCause)) {
-        //     currentCause._nextCauses.push(nextCause);
-        // }
-
         return mappings;
     },
 

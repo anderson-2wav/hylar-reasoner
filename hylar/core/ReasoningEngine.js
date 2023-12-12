@@ -10,7 +10,7 @@ var Logics = require('./Logics/Logics'),
     Utils = require('./Utils');
 
 var q = require('q');
-
+var _ = require('lodash');
 /**
  * Reasoning engine containing incremental algorithms
  * and heuristics for KB view maintaining.
@@ -42,7 +42,7 @@ ReasoningEngine = {
         // Recalculation
         do {
             FiAdd = Utils.uniques(FiAdd, FiAddNew);
-            FiAddNew = Solver.evaluateRuleSet(R, Utils.uniques(Fe, FiAdd));
+            FiAddNew = Solver.evaluateRuleSet(R, Utils.uniques(Fe, FiAdd), F);
         } while (!Logics.containsFacts(FiAdd, FiAddNew));
 
         additions = Utils.uniques(FeAdd, FiAdd);
@@ -60,10 +60,11 @@ ReasoningEngine = {
     /**
      * Incremental reasoning which avoids complete recalculation of facts.
      * Concat is preferred over merge for evaluation purposes.
-     * @param R set of rules
-     * @param F set of assertions
-     * @param FeAdd set of assertions to be added
-     * @param FeDel set of assertions to be deleted
+     * @param {Fact[]} FeAdd all explicit added
+     * @param {Fact[]} FeDel all explicit deleted
+     * @param {Fact[]} F set of all known Facts
+     * @param {Rule} R set of rules
+     * @param {string[]} subjects to whitelist
      */
     incremental: function (FeAdd, FeDel, F, R, whitelist) {
         var Rdel = [], Rred = [], Rins = [],
@@ -75,6 +76,9 @@ ReasoningEngine = {
 
             Fe = Logics.getOnlyExplicitFacts(F),
             Fi = Logics.getOnlyImplicitFacts(F),
+            // where F is all facts known before
+            // FeAdd is all new explicit added
+            // FeDel is all new
 
             deferred = q.defer(),
 
@@ -88,7 +92,7 @@ ReasoningEngine = {
                 FiDel = Utils.uniques(FiDel, FiDelNew);
                 Rdel = Logics.restrictRuleSet(R, Utils.uniques(FeDel, FiDel));
                 Solver._phase = "deletion"; // temporary hack!
-                Solver.evaluateRuleSet(Rdel, Utils.uniques(Utils.uniques(Fi, Fe), FeDel))
+                Solver.evaluateRuleSet(Rdel, Utils.uniques(Utils.uniques(Fi, Fe), FeDel), F)
                     .then(function(values) {
                         FiDelNew = values.cons;
                         if (Utils.uniques(FiDel, FiDelNew).length > FiDel.length) {
@@ -106,7 +110,7 @@ ReasoningEngine = {
                 FiAdd = Utils.uniques(FiAdd, FiAddNew);
                 Rred = Logics.restrictRuleSet(R, FiDel);
                 Solver._phase = "rederivation"; // temporary hack!
-                Solver.evaluateRuleSet(Rred, Utils.uniques(Fe, Fi))
+                Solver.evaluateRuleSet(Rred, Utils.uniques(Fe, Fi), F)
                     .then(function(values) {
                         FiAddNew = values.cons;
                         if (Utils.uniques(FiAdd, FiAddNew).length > FiAdd.length) {
@@ -120,6 +124,7 @@ ReasoningEngine = {
             insertionEvaluationLoop = function() {
                 insertionLoopCt++;
                 FiAdd = Utils.uniques(FiAdd, FiAddNew);
+                const kb = Utils.uniques(F,FiAddNew);
                 if (insertionLoopCt === 1) {
                     // the first time through, reason over all new E and I
                     superSet = Utils.uniques(FiAdd, FeAdd);
@@ -129,8 +134,7 @@ ReasoningEngine = {
                     superSet = FiAddNew;
                 }
                 // another temporary hack
-                Solver._verbose = false;
-                Solver._KB = Utils.uniques(Utils.uniques(Utils.uniques(Fe, Fi), FeAdd), FiAdd);
+                Solver._verbose = true;
                 console.log(`incremental insertionEvaluationLoop #${insertionLoopCt} over ${superSet.length} facts.`);
                 if (FiAdd.length) {
                     // TODO experimental... why use the entire superset here?
@@ -145,13 +149,15 @@ ReasoningEngine = {
                 // console.log(`incremental insertionEvaluationLoop evaluate restricted set ${Rins.length} of ${R.length} rules.`);
                 Solver._phase = "insertion"; // temporary hack!
                 Solver._round = insertionLoopCt;
-                Solver.evaluateRuleSet(Rins, superSet, undefined, undefined, whitelist)
+                Solver.evaluateRuleSet(Rins, superSet, kb,undefined, undefined, whitelist)
                     .then(function(values) {
                         FiAddNew = values.cons;
                         if (!Utils.containsSubset(FiAdd, FiAddNew)) {
                             insertionEvaluationLoop();
                         } else {
-                            additions = Utils.uniques(FeAdd, FiAdd);
+                            // the current impl will recreate some I that are already known (in F). prune them
+                            const newFiAdd = _.differenceBy(FiAdd, F, "asString");
+                            additions = Utils.uniques(FeAdd, newFiAdd);
                             deletions = Utils.uniques(FeDel, FiDel);
                             deferred.resolve({
                                 additions: additions,
@@ -212,7 +218,7 @@ ReasoningEngine = {
             evaluationLoop = function() {
                 F = Utils.uniques(F, Fi);
                 Rins = Logics.restrictRuleSet(R, F);
-                Solver.evaluateRuleSet(Rins, F, true)
+                Solver.evaluateRuleSet(Rins, F, undefined, true)
                     .then(function(values) {
                         FiAdd = values.cons;
                         if (Logics.unify(FiAdd, Fi)) {

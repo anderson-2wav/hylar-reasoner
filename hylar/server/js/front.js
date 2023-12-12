@@ -1,3 +1,4 @@
+/* eslint-disable */
 const fileUpload = (ev, contextPath) => {
     let formData = new FormData()
     formData.append('file', ev.files[0])
@@ -63,7 +64,7 @@ const prove = async(inferredFactId, assertedFactIds, entailment) => {
     let proofChain = [facts]
 
     const evalLoop = async() => {
-        let values = await Solver.evaluateRuleSet(Rules[entailment] ? Rules[entailment] : Rules.owl2rl, proofChain.flat(), true)
+        let values = await Solver.evaluateRuleSet(Rules[entailment] ? Rules[entailment] : Rules.owl2rl,  proofChain.flat(), undefined, true)
         if (Utils.uniques(proofChain.flat(), values.cons).length > proofChain.flat().length) {
             let previousDerivations = proofChain[proofChain.length-1]
             let currentDerivations = []

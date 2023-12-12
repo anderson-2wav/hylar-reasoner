@@ -196,7 +196,15 @@ class Hylar {
         this.dict = new Dictionary();
         this.sm = new TripleStorageManager();
         this.sm.init();
-        this.persist()
+        // rules may contain cached reasoning
+        this.rules.forEach((r) => {
+            (r.causes || []).forEach((c) => {
+                delete c.graphHash;
+                delete c._seen;
+                delete c._nextCauses;
+            });
+        });
+        this.persist();
     }
 
     /**

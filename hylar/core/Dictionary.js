@@ -30,6 +30,24 @@ function Dictionary() {
     }
 };
 
+/**
+ * Return a copy of this dictionary.
+ * Facts are copied by reference, but the dict is independent,
+ * and thus adds and deletions do not affect the original.
+ * @returns {Dictionary}
+ */
+Dictionary.prototype.clone = function() {
+    const clone = new Dictionary();
+    // graphs
+    for (const graph of Object.keys(this.dict)) {
+        const facts = this.values(graph);
+        for (let i=0; i < facts.length; i++) {
+            clone.put(facts[i],graph);
+        }
+    }
+    return clone;
+};
+
 Dictionary.prototype.turnOnForgetting = function() {
     this.allowPurge = true;
 };
@@ -54,7 +72,7 @@ Dictionary.prototype.clear = function() {
 /**
  * Returns the fact corresponding to the turtle triple.
  * @param ttl
- * @returns {*}
+ * @returns {Fact[]|false}
  */
 Dictionary.prototype.get = function(ttl, graph) {
     var facts;
@@ -71,8 +89,8 @@ Dictionary.prototype.get = function(ttl, graph) {
  * an existing turtle triple, or puts
  * a new one by transform the fact into turtle
  * through the ParsingInterface.
- * @param fact
- * @returns {*}
+ * @param {Fact} fact
+ * @returns {true|Error}
  */
 Dictionary.prototype.put = function(fact, graph) {
     var timestamp = new Date().getTime(), factToTurtle;
@@ -109,6 +127,12 @@ Dictionary.prototype.put = function(fact, graph) {
     }
 };
 
+/**
+ * Put a fact into hash index.
+ * @param {Fact} fact
+ * @param {string} [graph="#default"]
+ * @returns {Fact[]}
+ */
 Dictionary.prototype.putIndex = function(fact, graph) {
     graph = this.resolveGraph(graph);
     this.index[graph] = this.index[graph] ?? {};
@@ -120,7 +144,20 @@ Dictionary.prototype.putIndex = function(fact, graph) {
     this.index[graph][fact.predicate][fact.subject][o] = fact;
 }
 
+/**
+ * Pull all matching facts from index.
+ * Params which are query variables like ?x will match all.
+ *
+ * @param {string} s
+ * @param {string} p
+ * @param {string} o
+ * @param {string} [graph="#default"]
+ * @returns {Fact[]}
+ */
 Dictionary.prototype.getIndex = function(s,p,o,graph) {
+    s = s ?? "";
+    p = p ?? "";
+    o = o ?? "";
     graph = this.resolveGraph(graph);
     const facts = [];
     const ps = (p[0] === "?") ? Object.keys(this.index[graph]) : [p];

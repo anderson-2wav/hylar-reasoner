@@ -19,6 +19,15 @@ function Dictionary() {
     };
     this.lastUpdate = 0;
     this.purgeThreshold = 13000000;
+
+    // index idea
+    this.index = {
+        predicate: {
+            subject: {
+                object: null
+            }
+        }
+    }
 };
 
 Dictionary.prototype.turnOnForgetting = function() {
@@ -93,10 +102,45 @@ Dictionary.prototype.put = function(fact, graph) {
                 this.dict[graph][factToTurtle].lastUpdate = timestamp;
             }
         }
+        this.putIndex(fact,graph);
         return true;
     } catch(e) {
         return e;
     }
+};
+
+Dictionary.prototype.putIndex = function(fact, graph) {
+    graph = this.resolveGraph(graph);
+    this.index[graph] = this.index[graph] ?? {};
+    // predicate
+    this.index[graph][fact.predicate] = this.index[graph][fact.predicate] ?? {};
+    this.index[graph][fact.predicate][fact.subject] = this.index[graph][fact.predicate][fact.subject] ?? {};
+    const o = fact.object.toString();
+    this.index[graph][fact.predicate][fact.subject][o] = this.index[graph][fact.predicate][fact.subject][o] ?? {};
+    this.index[graph][fact.predicate][fact.subject][o] = fact;
+}
+
+Dictionary.prototype.getIndex = function(s,p,o,graph) {
+    graph = this.resolveGraph(graph);
+    const facts = [];
+    const ps = (p[0] === "?") ? Object.keys(this.index[graph]) : [p];
+    for (const _p of ps) {
+        if (this.index[graph][_p]) {
+            const ss = (s[0] === "?") ? Object.keys(this.index[graph][_p]) : [s];
+            for (const _s of ss) {
+                if (this.index[graph][_p][_s]) {
+                    const os = (o[0] === "?") ? Object.keys(this.index[graph][_p][_s]) : [o];
+                    for (const _o of os) {
+                        if (this.index[graph][_p][_s][_o]) {
+                            const f = this.index[graph][_p][_s][_o];
+                            facts.push(f);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return facts;
 };
 
 Dictionary.prototype.isOld = function(graph, factIndex) {

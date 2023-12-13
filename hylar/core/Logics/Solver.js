@@ -206,20 +206,23 @@ Solver = {
         for (var i = 0; i < currentCauses.length; i++) {
             var currentCause = currentCauses[i];
             const ckey = currentCause.toString();
-            if (Solver._verbose && j>0 && j % 10000 === 0) {
-                console.log(`Rule ${rule.name} cause ${ckey} eval ${j} of ${facts.length} facts.`);
-            }
             if (this.graphHash !== currentCause.graphHash) {
-                if (Solver._verbose) {
-                    console.log(`cause ${ckey} has not seen some facts. Evaluate all.`);
-                    // if (currentCause._seen) {
-                    //     console.log(`cause ${ckey} has _seen`,Object.keys(currentCause._seen));
-                    // }
-                    // else {
-                    //     console.log(`${ckey} never _seen.`);
-                    // }
+                const newFacts = this.kb.filter((f) => {
+                    return !currentCause._seen[f.asString];
+                });
+                if (newFacts.length) {
+                    facts = Utils.uniques(newFacts, facts);
+                    // console.log(`cause ${ckey} added ${newFacts.length} new facts.`);
+                    if (Solver._verbose) {
+                        console.log(`cause ${ckey} found ${newFacts.length} new of ${this.kb.length} total facts to evaluate.`);
+                        // if (currentCause._seen) {
+                        //     console.log(`cause ${ckey} has _seen`,Object.keys(currentCause._seen));
+                        // }
+                        // else {
+                        //     console.log(`${ckey} never _seen.`);
+                        // }
+                    }
                 }
-                facts = Utils.uniques(this.kb, facts);
             }
             currentCause._seen = currentCause._seen ?? {};
             currentCause._nextCauses = currentCause._nextCauses ?? [];
@@ -237,9 +240,9 @@ Solver = {
                 evalCt++;
                 currentCause._seen[fkey] = 1;
 
-                if (Solver._verbose && j>0 && j % 10000 === 0) {
-                    console.log(`Rule ${rule.name} cause ${ckey} eval ${j} of ${facts.length} facts.`);
-                }
+                // if (Solver._verbose && j>0 && j % 10000 === 0) {
+                //     console.log(`Rule ${rule.name} cause ${ckey} eval ${j} of ${facts.length} facts.`);
+                // }
                 // Get the mapping of the current cause ...
                 var mapping = currentCause.mapping,
                     substitutedNextCause,

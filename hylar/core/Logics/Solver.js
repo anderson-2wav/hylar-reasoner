@@ -20,13 +20,18 @@ var _ = require('lodash');
 Solver = {
     /**
      * Evaluates a set of rules over a set of facts.
+     *
+     * This gets both a KB and a D, so that no D.values call is needed.
+     *
      * @param {Rule[]} rs
      * @param {Fact[]} facts (new) to be evaluated
      * @param {Fact[]} KB all known facts
+     * @param {Dictionary} [D] all known facts dict (used only by incremental)
      * @returns Array of the evaluation.
      */
-    evaluateRuleSet: function(rs, facts, KB,  doTagging, resolvedImplicitFactSet, whitelist) {
+    evaluateRuleSet: function(rs, facts, KB, D,  doTagging, resolvedImplicitFactSet, whitelist) {
         this.KB = KB; // yucky, but make available to internal fns this way.
+        this.D = D;
         this.graphHash = Utils.stringHash(this.KB.map(f => f.asString));
         var deferred = q.defer(), promises = [], cons = [], filteredFacts;
         for (var key in rs) {
@@ -95,8 +100,8 @@ Solver = {
                     }
                 }
             }
-            if (Solver._verbose) {
-                console.log(`return ${consequences.length} consequences for rule ${rule.name}`);
+            if (true || Solver._verbose) {
+                console.log(`rule ${rule.name} inferred ${consequences.length} facts.`);
             }
             deferred.resolve(consequences);
         } catch(e) {
@@ -210,27 +215,25 @@ Solver = {
             // which currentCause has not seen, then
             // filer for those new facts and evaluate them
             // for currentCause.
+            let _newFactCt = 0;
             if (this.graphHash !== currentCause.graphHash) {
-                // I wish there was a way to use Dictionary.getIndex!
-                // but the hylar dict doesn't know about new Facts
-                // that have been created in previous reasoning iterations
-
-                const newFacts = this.KB.filter((f) => {
+                // Use the dictionary to get only facts with match the criteria
+                const possibleFacts = this.D.getIndex(currentCause.subject, currentCause.predicate, currentCause.object);
+                // filter out any facts already seen.
+                const newFacts = possibleFacts.filter((f) => {
                     return currentCause._seen ? !currentCause._seen[f.asString] : true;
                 });
                 if (newFacts.length) {
+                    _newFactCt = newFacts.length;
                     facts = Utils.uniques(newFacts, facts);
                     // console.log(`cause ${ckey} added ${newFacts.length} new facts.`);
-                    if (Solver._verbose) {
-                        console.log(`cause ${ckey} found ${newFacts.length} new of ${this.KB.length} total facts to evaluate.`);
-                        // if (currentCause._seen) {
-                        //     console.log(`cause ${ckey} has _seen`,Object.keys(currentCause._seen));
-                        // }
-                        // else {
-                        //     console.log(`${ckey} never _seen.`);
-                        // }
-                    }
                 }
+                if (Solver._verbose) {
+                    console.log(`cause ${ckey} added ${newFacts.length} new of ${this.KB.length} total to evaluate ${facts.length} current facts.`);
+                }
+            }
+            else if (Solver._verbose) {
+                console.log(`cause ${ckey} up to date! evaluating ${facts.length} current facts.`);
             }
             currentCause._seen = currentCause._seen ?? {};
             currentCause._nextCauses = currentCause._nextCauses ?? [];
@@ -276,11 +279,17 @@ Solver = {
                     }
                 }
             }
-            // this cause has seen some new facts...
-            if (evalCt) {
-                const strs = Object.keys(currentCause._seen);
-                currentCause.graphHash = Utils.stringHash(strs);
-            }
+            // I think this is wrong...
+            // // this cause has seen some new facts...
+            // if (evalCt) {
+            //     const strs = Object.keys(currentCause._seen);
+            //     currentCause.graphHash = Utils.stringHash(strs);
+            // }
+
+            // at this point, currentCause has reviewed all facts possibly
+            // relevant to it, so it doesn't need to consider new facts unless
+            // the globel this.graphHash changes.
+            currentCause.graphHash = this.graphHash;
         }
         return mappings;
     },

@@ -75,11 +75,13 @@ ReasoningEngine = {
 
             additions, deletions,
 
-          // KB is the entire set of known facts at the start,
-          // plus any added facts during iterations.
+          // KB is the flattened dictionary. Updated at iterations.
+          // (I'm concerned about efficiency of this operation)
             KB = D.values(),
           // D is a clone of the dictionary that can be added/removed
           // without affecting the original (from Hylar).
+          // Represents the entire set of known facts,
+          // including facts added/removed during iteration.
             D = D.clone(),
 
           // did this ever work? getOnlyExplicitFacts expects a dict,
@@ -103,7 +105,7 @@ ReasoningEngine = {
                 FiDel = Utils.uniques(FiDel, FiDelNew);
                 Rdel = Logics.restrictRuleSet(R, Utils.uniques(FeDel, FiDel));
                 Solver._phase = "deletion"; // temporary hack!
-                Solver.evaluateRuleSet(Rdel, Utils.uniques(Utils.uniques(Fi, Fe), FeDel), KB)
+                Solver.evaluateRuleSet(Rdel, Utils.uniques(Utils.uniques(Fi, Fe), FeDel), KB, D)
                     .then(function(values) {
                         FiDelNew = values.cons;
                         if (Utils.uniques(FiDel, FiDelNew).length > FiDel.length) {
@@ -121,7 +123,7 @@ ReasoningEngine = {
                 FiAdd = Utils.uniques(FiAdd, FiAddNew);
                 Rred = Logics.restrictRuleSet(R, FiDel);
                 Solver._phase = "rederivation"; // temporary hack!
-                Solver.evaluateRuleSet(Rred, Utils.uniques(Fe, Fi), KB)
+                Solver.evaluateRuleSet(Rred, Utils.uniques(Fe, Fi), KB, D)
                     .then(function(values) {
                         FiAddNew = values.cons;
                         if (Utils.uniques(FiAdd, FiAddNew).length > FiAdd.length) {
@@ -142,8 +144,8 @@ ReasoningEngine = {
                     insertionSet = Utils.uniques(FiAdd, FeAdd);
                 }
 
-                Solver._verbose = true;
-                console.log(`incremental insertionEvaluationLoop #${insertionLoopCt} over ${insertionSet.length} facts.`);
+                Solver._verbose = false;
+                console.log(`incremental insertionEvaluationLoop #${insertionLoopCt} inserting ${insertionSet.length} facts.`);
                 Rins = Logics.restrictRuleSet(R, insertionSet);
                 // if (FiAdd.length) {
                 //     // not worth the bother...
@@ -156,7 +158,7 @@ ReasoningEngine = {
                 // console.log(`incremental insertionEvaluationLoop evaluate restricted set ${Rins.length} of ${R.length} rules.`);
                 Solver._phase = "insertion"; // temporary hack!
                 Solver._round = insertionLoopCt;
-                Solver.evaluateRuleSet(Rins, insertionSet, KB,undefined, undefined, whitelist)
+                Solver.evaluateRuleSet(Rins, insertionSet, KB, D,undefined, undefined, whitelist)
                     .then(function(values) {
                         FiAddNew = values.cons;
                         // problem: reasoning my assert new I's
@@ -167,16 +169,28 @@ ReasoningEngine = {
                             FiAdd = Utils.uniques(FiAdd, FiAddNew);
                             if (insertionLoopCt === 1) {
                                 // explicit facts that were added
-                                // need to be added to the KB _once_
-                                KB.push(...FeAdd);
+                                // need to be added to D _once_
+                                for (let i=0; i < FeAdd.length; i++) {
+                                    D.put(FeAdd[i]);
+                                }
+                                // // need to be added to the KB _once_
+                                // KB.push(...FeAdd);
                             }
-                            // add new statements to the known KB,
+                            // add new statements to the known D,
                             // for next iteration
-                            KB.push(...FiAddNew); // concat may be faster, but use more memory. would be interesting test.
+                            // need to be added to D _once_
+                            for (let i=0; i < FiAddNew.length; i++) {
+                                D.put(FiAddNew[i]);
+                            }
+                            // KB.push(...FiAddNew); // concat may be faster, but use more memory. would be interesting test.
+                            // KB is needed for _.differenceBy, so update it now
+                            KB = D.values();
+                            console.log(`insertionEvaluationLoop #${insertionLoopCt} inferred ${FiAddNew.length} facts.`);
                             insertionEvaluationLoop();
                         } else {
                             // remember the new I in the total set, without duplicates
                             FiAdd = Utils.uniques(FiAdd, FiAddNew);
+                            console.log(`incremental reasoner returning E ${FeAdd.length} and I ${FiAdd.length} facts.`);
                             additions = Utils.uniques(FeAdd, FiAdd);
                             deletions = Utils.uniques(FeDel, FiDel);
                             deferred.resolve({

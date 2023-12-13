@@ -30,6 +30,14 @@ function Dictionary() {
     }
 };
 
+Dictionary.fromFacts = function(facts) {
+    const dict = new Dictionary();
+    for (let i=0; i < facts.length; i++) {
+        dict.put(facts[i],graph);
+    }
+    return dict;
+}
+
 /**
  * Return a copy of this dictionary.
  * Facts are copied by reference, but the dict is independent,

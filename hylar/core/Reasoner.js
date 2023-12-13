@@ -25,15 +25,15 @@ module.exports = {
     /**
      * Evaluates knowledge base update using
      * advanced reasoning algorithms (incremental, tag-based).
-     * @param fI The facts to insert
-     * @param fD The facts to delete
-     * @param F The KB
+     * @param {Fact[]} fI The facts to insert
+     * @param {Fact[]} fD The facts to delete
+     * @param {Dictionary} D Dict of all facts
      * @param alg The reasoning algorithm (function)
      * @returns {*}
      */
-    evaluate: function(fI, fD, F, alg, rules, whitelist) {
+    evaluate: function(fI, fD, D, alg, rules, whitelist) {
         if (!alg) alg = ReasoningEngine.incremental;
-        return alg(fI, fD, F, rules, whitelist);
+        return alg(fI, fD, D, rules, whitelist);
     },
 
     /**

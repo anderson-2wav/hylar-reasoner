@@ -8,6 +8,7 @@ var h = require('../hylar');
 var Logics = require('./Logics/Logics'),
     Solver = require('./Logics/Solver'),
     Utils = require('./Utils');
+    Dictionary = require('./Dictionary');
 
 var q = require('q');
 var _ = require('lodash');
@@ -62,11 +63,11 @@ ReasoningEngine = {
      * Concat is preferred over merge for evaluation purposes.
      * @param {Fact[]} FeAdd all explicit added
      * @param {Fact[]} FeDel all explicit deleted
-     * @param {Fact[]} F set of all known Facts
+     * @param {Dictionary} D dict of all known Facts
      * @param {Rule} R set of rules
      * @param {string[]} subjects to whitelist
      */
-    incremental: function (FeAdd, FeDel, F, R, whitelist) {
+    incremental: function (FeAdd, FeDel, D, R, whitelist) {
         var Rdel = [], Rred = [], Rins = [],
             FiDel = [], FiAdd = [],
             FiDelNew = [], FiAddNew = [],
@@ -74,13 +75,23 @@ ReasoningEngine = {
 
             additions, deletions,
 
-            Fe = Logics.getOnlyExplicitFacts(F),
-            Fi = Logics.getOnlyImplicitFacts(F),
+          // KB is the entire set of known facts at the start,
+          // plus any added facts during iterations.
+            KB = D.values(),
+          // D is a clone of the dictionary that can be added/removed
+          // without affecting the original (from Hylar).
+            D = D.clone(),
+
+          // did this ever work? getOnlyExplicitFacts expects a dict,
+          // but it was previously being passed a [], afaict.
+            Fe = Logics.getOnlyExplicitFacts(KB),
+            Fi = Logics.getOnlyImplicitFacts(KB),
             // where F is all facts known before
             // FeAdd is all new explicit added
             // FeDel is all new
 
-            deferred = q.defer(),
+
+        deferred = q.defer(),
 
             startAlgorithm = function() {
                 console.log("incremental startAlgorithm");
@@ -92,7 +103,7 @@ ReasoningEngine = {
                 FiDel = Utils.uniques(FiDel, FiDelNew);
                 Rdel = Logics.restrictRuleSet(R, Utils.uniques(FeDel, FiDel));
                 Solver._phase = "deletion"; // temporary hack!
-                Solver.evaluateRuleSet(Rdel, Utils.uniques(Utils.uniques(Fi, Fe), FeDel), F)
+                Solver.evaluateRuleSet(Rdel, Utils.uniques(Utils.uniques(Fi, Fe), FeDel), KB)
                     .then(function(values) {
                         FiDelNew = values.cons;
                         if (Utils.uniques(FiDel, FiDelNew).length > FiDel.length) {
@@ -110,7 +121,7 @@ ReasoningEngine = {
                 FiAdd = Utils.uniques(FiAdd, FiAddNew);
                 Rred = Logics.restrictRuleSet(R, FiDel);
                 Solver._phase = "rederivation"; // temporary hack!
-                Solver.evaluateRuleSet(Rred, Utils.uniques(Fe, Fi), F)
+                Solver.evaluateRuleSet(Rred, Utils.uniques(Fe, Fi), KB)
                     .then(function(values) {
                         FiAddNew = values.cons;
                         if (Utils.uniques(FiAdd, FiAddNew).length > FiAdd.length) {
@@ -123,41 +134,50 @@ ReasoningEngine = {
 
             insertionEvaluationLoop = function() {
                 insertionLoopCt++;
-                FiAdd = Utils.uniques(FiAdd, FiAddNew);
-                const kb = Utils.uniques(F,FiAddNew);
+                // subsequent recursions, only reason over new I from last round
+                let insertionSet = FiAddNew ?? [];
+                // the first time through, reason over added explicit.
                 if (insertionLoopCt === 1) {
-                    // the first time through, reason over all new E and I
-                    superSet = Utils.uniques(FiAdd, FeAdd);
+                    // FiAdd is probably empty.
+                    insertionSet = Utils.uniques(FiAdd, FeAdd);
                 }
-                else {
-                    // subsequent recursions, only reason over new I from last round
-                    superSet = FiAddNew;
-                }
-                // another temporary hack
+
                 Solver._verbose = true;
-                console.log(`incremental insertionEvaluationLoop #${insertionLoopCt} over ${superSet.length} facts.`);
-                if (FiAdd.length) {
-                    // TODO experimental... why use the entire superset here?
-                    // don't we only care about rules that might touch the inserted set?
-                    // in practice this makes very little difference in outcome,
-                    Rins = Logics.restrictRuleSet(R, FiAdd);
-                }
-                else {
-                    Rins = Logics.restrictRuleSet(R, superSet);
-                }
+                console.log(`incremental insertionEvaluationLoop #${insertionLoopCt} over ${insertionSet.length} facts.`);
+                Rins = Logics.restrictRuleSet(R, insertionSet);
+                // if (FiAdd.length) {
+                //     // not worth the bother...
+                //     // TODO experimental... why use the entire superset here?
+                //     // don't we only care about rules that might touch the inserted set?
+                //     // in practice this makes very little difference in outcome,
+                //     Rins = Logics.restrictRuleSet(R, FiAdd);
+                // }
 
                 // console.log(`incremental insertionEvaluationLoop evaluate restricted set ${Rins.length} of ${R.length} rules.`);
                 Solver._phase = "insertion"; // temporary hack!
                 Solver._round = insertionLoopCt;
-                Solver.evaluateRuleSet(Rins, superSet, kb,undefined, undefined, whitelist)
+                Solver.evaluateRuleSet(Rins, insertionSet, KB,undefined, undefined, whitelist)
                     .then(function(values) {
                         FiAddNew = values.cons;
+                        // problem: reasoning my assert new I's
+                        // that are already known to the KB, from before
+                        FiAddNew = _.differenceBy(FiAddNew,KB,"asString");
                         if (!Utils.containsSubset(FiAdd, FiAddNew)) {
+                            // remember the new I in the total set, without duplicates
+                            FiAdd = Utils.uniques(FiAdd, FiAddNew);
+                            if (insertionLoopCt === 1) {
+                                // explicit facts that were added
+                                // need to be added to the KB _once_
+                                KB.push(...FeAdd);
+                            }
+                            // add new statements to the known KB,
+                            // for next iteration
+                            KB.push(...FiAddNew); // concat may be faster, but use more memory. would be interesting test.
                             insertionEvaluationLoop();
                         } else {
-                            // the current impl will recreate some I that are already known (in F). prune them
-                            const newFiAdd = _.differenceBy(FiAdd, F, "asString");
-                            additions = Utils.uniques(FeAdd, newFiAdd);
+                            // remember the new I in the total set, without duplicates
+                            FiAdd = Utils.uniques(FiAdd, FiAddNew);
+                            additions = Utils.uniques(FeAdd, FiAdd);
                             deletions = Utils.uniques(FeDel, FiDel);
                             deferred.resolve({
                                 additions: additions,
@@ -165,6 +185,7 @@ ReasoningEngine = {
                             });
                         }
                     }).fail(function(err) {
+                        console.error("incremental insert error:",err);
                         h.displayError(err);
                     });
             };

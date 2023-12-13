@@ -22,12 +22,12 @@ Solver = {
      * Evaluates a set of rules over a set of facts.
      * @param {Rule[]} rs
      * @param {Fact[]} facts (new) to be evaluated
-     * @param {Fact[]} [kb] all known facts
+     * @param {Fact[]} KB all known facts
      * @returns Array of the evaluation.
      */
-    evaluateRuleSet: function(rs, facts, kb,  doTagging, resolvedImplicitFactSet, whitelist) {
-        this.kb = kb ?? [];
-        this.graphHash = Utils.stringHash(this.kb.map(f => f.asString));
+    evaluateRuleSet: function(rs, facts, KB,  doTagging, resolvedImplicitFactSet, whitelist) {
+        this.KB = KB; // yucky, but make available to internal fns this way.
+        this.graphHash = Utils.stringHash(this.KB.map(f => f.asString));
         var deferred = q.defer(), promises = [], cons = [], filteredFacts;
         for (var key in rs) {
             if (doTagging) {
@@ -206,15 +206,23 @@ Solver = {
         for (var i = 0; i < currentCauses.length; i++) {
             var currentCause = currentCauses[i];
             const ckey = currentCause.toString();
+            // if there are facts known in the total graph
+            // which currentCause has not seen, then
+            // filer for those new facts and evaluate them
+            // for currentCause.
             if (this.graphHash !== currentCause.graphHash) {
-                const newFacts = this.kb.filter((f) => {
-                    return !currentCause._seen[f.asString];
+                // I wish there was a way to use Dictionary.getIndex!
+                // but the hylar dict doesn't know about new Facts
+                // that have been created in previous reasoning iterations
+
+                const newFacts = this.KB.filter((f) => {
+                    return currentCause._seen ? !currentCause._seen[f.asString] : true;
                 });
                 if (newFacts.length) {
                     facts = Utils.uniques(newFacts, facts);
                     // console.log(`cause ${ckey} added ${newFacts.length} new facts.`);
                     if (Solver._verbose) {
-                        console.log(`cause ${ckey} found ${newFacts.length} new of ${this.kb.length} total facts to evaluate.`);
+                        console.log(`cause ${ckey} found ${newFacts.length} new of ${this.KB.length} total facts to evaluate.`);
                         // if (currentCause._seen) {
                         //     console.log(`cause ${ckey} has _seen`,Object.keys(currentCause._seen));
                         // }
@@ -240,9 +248,6 @@ Solver = {
                 evalCt++;
                 currentCause._seen[fkey] = 1;
 
-                // if (Solver._verbose && j>0 && j % 10000 === 0) {
-                //     console.log(`Rule ${rule.name} cause ${ckey} eval ${j} of ${facts.length} facts.`);
-                // }
                 // Get the mapping of the current cause ...
                 var mapping = currentCause.mapping,
                     substitutedNextCause,

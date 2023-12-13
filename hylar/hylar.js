@@ -721,9 +721,11 @@ class Hylar {
         // Hylar.notify('Starting ParsingInterface.triplesToFacts (dTriples).');
         FeDel = ParsingInterface.triplesToFacts(dTriples, true, (this.rMethod == Reasoner.process.it.incrementally));
         const startReasoning = Date.now();
+        // experiment with passing dict to Reasoner, so that reasoner can use index
+        // this.axioms appears to be unused
         const KB = F.concat(this.axioms);
         Hylar.notify(`Starting Reasoner.evaluate. ${FeIns.length} inserted. ${FeDel.length} deleted. ${KB.length} existing facts.`);
-        let derivations = await Reasoner.evaluate(FeIns, FeDel, KB, this.rMethod, this.rules, whitelist);
+        let derivations = await Reasoner.evaluate(FeIns, FeDel, this.dict, this.rMethod, this.rules, whitelist);
         const endReasoning = Date.now();
         Hylar.notify(`Finished Reasoner.evaluate in ${Math.round((endReasoning-startReasoning)/1000)} seconds.`);
         // Use callback to pass derivations back up the chain to the external application
@@ -824,7 +826,7 @@ class Hylar {
             } else facts = facts.concat(_fs)
         }
 
-        let derivations = await Reasoner.evaluate(facts, [], this.axioms, this.rMethod, this.rules);
+        let derivations = await Reasoner.evaluate(facts, [], this.dict, this.rMethod, this.rules);
         if (this.classifyCallback) {
             this.classifyCallback(derivations);
         }

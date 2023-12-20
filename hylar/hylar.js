@@ -332,7 +332,7 @@ class Hylar {
         if (typeof persistDerivations === "undefined") {
           persistDerivations = true;
         }
-        console.log("Query with persist: " + persistDerivations);
+        Hylar.notify("Begin query with persist: " + persistDerivations);
 
         let sparql, singleWhereQueries = [], result
         Hylar.notify(`Received ${query}`, { silent: true })

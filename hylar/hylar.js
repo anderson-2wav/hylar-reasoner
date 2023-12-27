@@ -839,10 +839,11 @@ class Hylar {
             chunks.push(ParsingInterface.factsToTurtle(factsChunk));
         }
 
-
+        Hylar.notify(`Begin inserting ${derivations.additions.length} triples in ${chunks.length} chunks into store.`);
+        // fs.writeFileSync("/tmp/hylar-chunks",``);
         let ct = 1;
         await Promise.reduce(chunks, (previous, chunk) => {
-            debug(`this.sm.insert chunk ${ct++}`);
+            debug(`this.sm.insert chunk ${++ct}`);
             // fs.appendFileSync("/tmp/hylar-chunks",`\n === chunk ${ct} ===\n`);
             // fs.appendFileSync("/tmp/hylar-chunks",chunk);
             return this.sm.insert(chunk);

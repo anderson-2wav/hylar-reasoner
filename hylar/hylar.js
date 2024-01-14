@@ -289,7 +289,6 @@ class Hylar {
                         ontologyTxt = ontologyTxt.replace(/\\/g,"/");
                     }
                     console.log(`loading ontologyTxt.length=${ontologyTxt.length} writing to "/tmp/ontologyTxt"`);
-                    fs.writeFileSync("/tmp/ontologyTxt",ontologyTxt);
                     let rCt = await this.sm.load(ontologyTxt, mimeType)
                     console.log(`${rCt} triples loaded in the store`);
 
@@ -826,26 +825,87 @@ class Hylar {
             } else facts = facts.concat(_fs)
         }
 
-        let derivations = await Reasoner.evaluate(facts, [], this.dict, this.rMethod, this.rules);
+        const filteredFacts = [];
+        for (let n = 0; n < facts.length; n++) {
+            const fact = facts[n];
+            if (fact.predicate[0] === `"`) {
+                // did reasoner do this?
+                console.log("BAD PREDICATE BEFORE REASONER:",fact);
+                continue;
+            }
+            switch (fact.predicate) {
+                case "http://www.w3.org/2000/01/rdf-schema#subClassOf":
+                case "http://www.w3.org/1999/02/22-rdf-syntax-ns#type":
+                    if (fact.object[0] === '"') {
+                        // did reasoner do this?
+                        console.log("BAD FACT BEFORE REASONER:", fact);
+                        // for ^^xsd literals with abs uris in <> or not.
+                        // I've seen both "97"^^<http://www.w3.org/2001/XMLSchema#integer>
+                        // and "97"^^http://www.w3.org/2001/XMLSchema#integer
+                        let rr = fact.object.match(/^"([\s\S]*)"\^\^.+#<?(\S+)>?/);
+                        if (!rr) {
+                            // for ^^xsd literals like "String Literal"^^xsd:string
+                            rr = fact.object.match(/^"([\s\S]*)"\^\^xsd:(\S+)/);
+                        }
+                        if (rr) {
+                            fact.object = rr[1];
+                            console.log(`AFTER fix: ${fact.object}`);
+                        } else {
+                            console.log("Discard fact",fact);
+                            break;
+                        }
+                    }
+                default:
+                    filteredFacts.push(fact);
+            }
+        }
+
+        let derivations = await Reasoner.evaluate(filteredFacts, [], this.dict, this.rMethod, this.rules);
         if (this.classifyCallback) {
             this.classifyCallback(derivations);
         }
         this.registerDerivations(derivations, graph);
 
-        let chunks = [], chunksNb = 2000
+        console.log(`additions before filtering ${derivations.additions.length}`);
+        const filteredAdditions = [];
+        for (let n = 0; n < derivations.additions.length; n++) {
+            const fact = derivations.additions[n];
+            if (fact.predicate[0] === `"`) {
+                // did reasoner do this?
+                console.log("BAD PREDICATE AFTER REASONER:",fact);
+                continue;
+            }
+            switch (fact.predicate) {
+                case "http://www.w3.org/2000/01/rdf-schema#subClassOf":
+                case "http://www.w3.org/1999/02/22-rdf-syntax-ns#type":
+                    if (fact.object[0] === '"') {
+                        // did reasoner do this?
+                        console.log("BAD FACT AFTER REASONER:",fact);
+                        // why didn't this work?
+                        derivations.additions.splice(n,1);
+                    }
+                    break;
+                default:
+                    filteredAdditions.push(fact);
+            }
+        }
+        console.log(`additions after filtering ${derivations.additions.length}`);
+        console.log(`filtered additions ${filteredAdditions.length}`);
+        derivations.additions = filteredAdditions;
 
+        let chunks = [], chunksNb = 20
         for (var i = 0, j = derivations.additions.length; i < j; i += chunksNb) {
             let factsChunk = derivations.additions.slice(i,i+chunksNb);
             chunks.push(ParsingInterface.factsToTurtle(factsChunk));
         }
 
         Hylar.notify(`Begin inserting ${derivations.additions.length} triples in ${chunks.length} chunks into store.`);
-        // fs.writeFileSync("/tmp/hylar-chunks",``);
+        fs.writeFileSync("/tmp/hylar-chunks",``);
         let ct = 1;
         await Promise.reduce(chunks, (previous, chunk) => {
-            debug(`this.sm.insert chunk ${++ct}`);
-            // fs.appendFileSync("/tmp/hylar-chunks",`\n === chunk ${ct} ===\n`);
-            // fs.appendFileSync("/tmp/hylar-chunks",chunk);
+            console.log(`this.sm.insert chunk ${++ct}`);
+            fs.appendFileSync("/tmp/hylar-chunks",`\n === chunk ${ct} ===\n`);
+            fs.appendFileSync("/tmp/hylar-chunks",chunk);
             return this.sm.insert(chunk);
         }, 0)
         const end = Date.now()

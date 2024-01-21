@@ -149,7 +149,7 @@ ParsingInterface = {
             that = this;
         for (var i = 0; i < facts.length; i++) {
             fact = facts[i];
-            ttl += that.factToTurtle(fact);
+            ttl += that.factToTurtle(fact)+"\n";
         }
         return ttl;
     },

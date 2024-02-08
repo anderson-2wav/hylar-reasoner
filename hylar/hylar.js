@@ -893,7 +893,7 @@ class Hylar {
         console.log(`filtered additions ${filteredAdditions.length}`);
         derivations.additions = filteredAdditions;
 
-        let chunks = [], chunksNb = 20
+        let chunks = [], chunksNb = 200;
         for (var i = 0, j = derivations.additions.length; i < j; i += chunksNb) {
             let factsChunk = derivations.additions.slice(i,i+chunksNb);
             chunks.push(ParsingInterface.factsToTurtle(factsChunk));

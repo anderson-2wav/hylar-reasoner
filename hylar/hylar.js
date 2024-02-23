@@ -61,7 +61,7 @@ class Hylar {
 
         this.queryHistory = []
         this.log = []
-
+        this.parsingInterface = ParsingInterface;
         Hylar.currentInstance = this
     }
 
@@ -289,6 +289,7 @@ class Hylar {
                         ontologyTxt = ontologyTxt.replace(/\\/g,"/");
                     }
                     console.log(`loading ontologyTxt.length=${ontologyTxt.length} writing to "/tmp/ontologyTxt"`);
+                    fs.writeFileSync("/tmp/ontologyTxt"+Date.now(),ontologyTxt);
                     let rCt = await this.sm.load(ontologyTxt, mimeType)
                     console.log(`${rCt} triples loaded in the store`);
 
@@ -880,7 +881,7 @@ class Hylar {
                 case "http://www.w3.org/1999/02/22-rdf-syntax-ns#type":
                     if (fact.object[0] === '"') {
                         // did reasoner do this?
-                        console.log("BAD FACT AFTER REASONER:",fact);
+                        // console.log("BAD FACT AFTER REASONER:",fact);
                         // why didn't this work?
                         derivations.additions.splice(n,1);
                     }

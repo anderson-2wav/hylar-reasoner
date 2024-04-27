@@ -288,7 +288,7 @@ class Hylar {
                         // rdfstore N3 parser freaks out at backslash,
                         ontologyTxt = ontologyTxt.replace(/\\/g,"/");
                     }
-                    console.log(`loading ontologyTxt.length=${ontologyTxt.length} writing to "/tmp/ontologyTxt"`);
+                    // console.log(`loading ontologyTxt.length=${ontologyTxt.length} writing to "/tmp/ontologyTxt"`);
                     // fs.writeFileSync("/tmp/ontologyTxt"+Date.now(),ontologyTxt);
                     let rCt = await this.sm.load(ontologyTxt, mimeType)
                     console.log(`${rCt} triples loaded in the store`);

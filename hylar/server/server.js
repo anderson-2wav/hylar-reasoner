@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-
+/* eslint-disable */
 var h = require('../hylar');
 
 var express = require('express'),

@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Created by MT on 17/09/2015.
  */
@@ -27,6 +28,7 @@ Rules = {
         "rdfs12 = (?uuu rdf:type rdfs:ContainerMembershipProperty) -> (?uuu rdfs:subPropertyOf rdfs:member)",
         "rdfs13 = (?uuu rdf:type rdfs:Datatype) -> (?uuu rdfs:subClassOf rdfs:Literal)"
     ], Rule.types.RDFS),
+    // these rule names seem to come from https://www.w3.org/TR/owl2-profiles/#OWL_2_RL
     owl2rl: Logics.parseRules([
         "prp-dom = (?p http://www.w3.org/2000/01/rdf-schema#domain ?c) ^ (?x ?p ?y) -> (?x http://www.w3.org/1999/02/22-rdf-syntax-ns#type ?c)",
         "prp-rng = (?p http://www.w3.org/2000/01/rdf-schema#range ?c) ^ (?x ?p ?y) -> (?y http://www.w3.org/1999/02/22-rdf-syntax-ns#type ?c)",
@@ -66,8 +68,9 @@ Rules = {
         "scm-sco = (?c1 http://www.w3.org/2000/01/rdf-schema#subClassOf ?c2) ^ (?c2 http://www.w3.org/2000/01/rdf-schema#subClassOf ?c3) -> (?c1 http://www.w3.org/2000/01/rdf-schema#subClassOf ?c3)",
         "scm-eqc1 = (?c1 http://www.w3.org/2002/07/owl#equivalentClass ?c2) -> (?c1 http://www.w3.org/2000/01/rdf-schema#subClassOf ?c2) ^ (?c2 http://www.w3.org/2000/01/rdf-schema#subClassOf ?c1)",
         "scm-eqc2 = (?c1 http://www.w3.org/2000/01/rdf-schema#subClassOf ?c2) ^ (?c2 http://www.w3.org/2000/01/rdf-schema#subClassOf ?c1) -> (?c1 http://www.w3.org/2002/07/owl#equivalentClass ?c2)",
-        "scm-op = (?p http://www.w3.org/1999/02/22-rdf-syntax-ns#type http://www.w3.org/2002/07/owl#ObjectProperty) -> (?p http://www.w3.org/2000/01/rdf-schema#subPropertyOf ?p) ^ (?p http://www.w3.org/2002/07/owl#equivalentProperty ?p)",
-        "scm-dp = (?p http://www.w3.org/1999/02/22-rdf-syntax-ns#type http://www.w3.org/2002/07/owl#DatatypeProperty) -> (?p http://www.w3.org/2000/01/rdf-schema#subPropertyOf ?p) ^ (?p http://www.w3.org/2002/07/owl#equivalentProperty ?p)",
+        // what is the point of these rules?
+        // "scm-op = (?p http://www.w3.org/1999/02/22-rdf-syntax-ns#type http://www.w3.org/2002/07/owl#ObjectProperty) -> (?p http://www.w3.org/2000/01/rdf-schema#subPropertyOf ?p) ^ (?p http://www.w3.org/2002/07/owl#equivalentProperty ?p)",
+        // "scm-dp = (?p http://www.w3.org/1999/02/22-rdf-syntax-ns#type http://www.w3.org/2002/07/owl#DatatypeProperty) -> (?p http://www.w3.org/2000/01/rdf-schema#subPropertyOf ?p) ^ (?p http://www.w3.org/2002/07/owl#equivalentProperty ?p)",
         "scm-spo = (?p1 http://www.w3.org/2000/01/rdf-schema#subPropertyOf ?p2) ^ (?p2 http://www.w3.org/2000/01/rdf-schema#subPropertyOf ?p3) -> (?p1 http://www.w3.org/2000/01/rdf-schema#subPropertyOf ?p3)",
         "scm-eqp1 = (?p1 http://www.w3.org/2002/07/owl#equivalentProperty ?p2) -> (?p1 http://www.w3.org/2000/01/rdf-schema#subPropertyOf ?p2) ^ (?p2 http://www.w3.org/2000/01/rdf-schema#subPropertyOf ?p1)",
         "scm-eqp2 = (?p1 http://www.w3.org/2000/01/rdf-schema#subPropertyOf ?p2) ^ (?p2 http://www.w3.org/2000/01/rdf-schema#subPropertyOf ?p1) -> (?p1 http://www.w3.org/2002/07/owl#equivalentProperty ?p2)",

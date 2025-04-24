@@ -13,18 +13,20 @@ const Logics = require("./Logics/Logics");
 const Utils = require('./Utils')
 const ParsingInterface = require('./ParsingInterface')
 
-function Dictionary() {
-    this.dict = {
+function Dictionary(dict, index) {
+    this.dict = dict || {
         '#default': {}
     };
     this.lastUpdate = 0;
     this.purgeThreshold = 13000000;
 
-    // index idea
-    this.index = {
-        predicate: {
-            subject: {
-                object: null
+    // index
+    this.index = index || {
+        "#default": {
+            predicate: {
+                subject: {
+                    object: null
+                }
             }
         }
     }

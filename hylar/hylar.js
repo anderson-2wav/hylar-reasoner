@@ -975,7 +975,15 @@ class Hylar {
     }
 
     async addRule(rule) {
-        this._customRules.push(rule)
+        // If the rule (by name) is already in the list, replace it
+        if (!this._customRules.some((r,i) => {
+            if (r.name === rule.name) {
+                this._customRules[i] = rule;
+                return true;
+            }
+        })) {
+            this._customRules.push(rule)
+        }
         await this.recomputeClosure()
     }
 

@@ -12,6 +12,8 @@ const Logics = require("./Logics/Logics");
 
 const Utils = require('./Utils')
 const ParsingInterface = require('./ParsingInterface')
+const Fact = require('./Logics/Fact');
+const Rule = require('./Logics/Rule');
 
 function Dictionary(dict, index) {
     this.dict = dict || {
@@ -30,6 +32,12 @@ function Dictionary(dict, index) {
             }
         }
     }
+};
+
+Dictionary.clone = function (dict) {
+    const _dict = new Dictionary();
+    Object.assign(_dict, dict);
+    return _dict;
 };
 
 Dictionary.fromFacts = function(facts) {
@@ -352,6 +360,119 @@ Dictionary.prototype.getFactFromStringRepresentation = function(factStr, graph) 
         }
     }
     return false;
+}
+
+Dictionary.prototype.flatten = function() {
+    const resultMap = new Map();
+    let factIdCounter = 0;
+    let ruleIdCounter = 0;
+    
+    // Process each graph in the dictionary
+    for (const graphUri in this.dict) {
+        const graphMap = new Map();
+        const processedObjects = new Set(); // Track processed objects to avoid cycles
+        
+        // Use a queue for iterative traversal instead of recursion
+        const queue = [];
+        
+        // Add the dictionary structure to the queue
+        queue.push(this.dict[graphUri]);
+        
+        // Add the index structure to the queue if it exists
+        if (this.index && this.index[graphUri]) {
+            queue.push(this.index[graphUri]);
+        }
+        
+        // Process the queue
+        while (queue.length > 0) {
+            const obj = queue.shift();
+            
+            // Skip if null, undefined, or already processed
+            if (!obj || typeof obj !== 'object' || processedObjects.has(obj)) {
+                continue;
+            }
+            
+            // Mark as processed to avoid cycles
+            processedObjects.add(obj);
+            
+            // Handle Fact instances
+            if (obj instanceof Fact) {
+                // Skip facts with literal subjects
+                if (obj.subject && obj.subject.indexOf(`"`) === 0) {
+                    continue;
+                }
+                
+                // Assign a unique ID if not already assigned
+                if (!obj._id) {
+                    obj._id = `fact_${factIdCounter++}`;
+                }
+                
+                // Add type property
+                obj._type = 'Fact';
+                
+                // Add to graph map
+                graphMap.set(obj._id, obj);
+                
+                // Add all properties to the queue for further processing
+                for (const key in obj) {
+                    if (Object.prototype.hasOwnProperty.call(obj, key) && key !== '_id' && key !== '_type') {
+                        queue.push(obj[key]);
+                    }
+                }
+                continue;
+            }
+            
+            // Handle Rule instances
+            if (obj instanceof Rule) {
+                // Assign a unique ID if not already assigned
+                if (!obj._id) {
+                    obj._id = `rule_${ruleIdCounter++}`;
+                }
+                
+                // Add type property
+                obj._type = 'Rule';
+                
+                // Add to graph map
+                graphMap.set(obj._id, obj);
+                
+                // Add all properties to the queue for further processing
+                for (const key in obj) {
+                    if (Object.prototype.hasOwnProperty.call(obj, key) && key !== '_id' && key !== '_type') {
+                        queue.push(obj[key]);
+                    }
+                }
+                continue;
+            }
+            
+            // Handle arrays
+            if (Array.isArray(obj)) {
+                for (let i = 0; i < obj.length; i++) {
+                    queue.push(obj[i]);
+                }
+                continue;
+            }
+            
+            // Handle Maps
+            if (obj instanceof Map) {
+                for (const [key, value] of obj.entries()) {
+                    queue.push(value);
+                }
+                continue;
+            }
+            
+            // For regular objects, add all properties to the queue
+            for (const key in obj) {
+                if (Object.prototype.hasOwnProperty.call(obj, key)) {
+                    queue.push(obj[key]);
+                }
+            }
+        }
+        
+        // Add the graph map to the result map
+        resultMap.set(graphUri, graphMap);
+    }
+    
+    return resultMap;
 }
 
 module.exports = Dictionary;

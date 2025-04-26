@@ -13,6 +13,7 @@ var Utils = require('../Utils');
  * @constructor
  */
 Fact = function(pred, sub, obj, causes, expl, graphs, consequences, notUsingValidity, fromTriple) {
+    this._type = "Fact";
     if(pred == 'FALSE') {
         this.falseFact = 'true';
     }
@@ -22,9 +23,9 @@ Fact = function(pred, sub, obj, causes, expl, graphs, consequences, notUsingVali
     if (consequences === undefined) consequences = [];
     this.matches = {};
 
-    this.predicate = pred;
-    this.subject = sub;
-    this.object = obj;
+    this.predicate = pred || "";
+    this.subject = sub || "";
+    this.object = obj || "";
     this.consequences = consequences;
     this.fromTriple = fromTriple;
 
@@ -53,6 +54,24 @@ Fact = function(pred, sub, obj, causes, expl, graphs, consequences, notUsingVali
     }
 
     this.asString = this.asPlainString();
+};
+
+Fact.clone = function(fact) {
+    const _fact = new Fact();
+    Object.assign(_fact, fact);
+    return _fact;
+};
+
+/**
+ * Static method to check if an object is a Fact instance.
+ * This checks for the presence of the isValid function, which will only exist
+ * on actual Fact instances and not on plain objects.
+ * 
+ * @param {*} obj - The object to check
+ * @returns {boolean} - True if the object is a Fact instance, false otherwise
+ */
+Fact.isFact = function(obj) {
+    return obj && typeof obj === 'object' && typeof obj.isValid === 'function';
 };
 
 Fact.prototype = {

@@ -46,6 +46,29 @@ Rule.clone = function(rule) {
     return _rule;
 };
 
+/**
+ * Checks if an object is an instance of Rule
+ * @param {*} obj - The object to check
+ * @returns {boolean} - True if obj is a Rule instance, false otherwise
+ */
+Rule.isRule = function(obj) {
+    if (!obj || typeof obj !== 'object') return false;
+    
+    // Check for required instance methods
+    const requiredMethods = [
+        'toString',
+        'setName',
+        'orderCausesByMostRestrictive',
+        'dependsOn',
+        'addDependentRule',
+        'toCHR'
+    ];
+    
+    return requiredMethods.every(method => 
+        typeof obj[method] === 'function'
+    ) && obj._type === "Rule";
+};
+
 Rule.types = {
     CUSTOM: "CUSTOM",
     OWL2RL: "OWL2RL",

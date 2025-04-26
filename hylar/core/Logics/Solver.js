@@ -128,7 +128,7 @@ Solver = {
             for (var i = 0; i < mappingList.length; i++) {
                 if (mappingList[i]) {
                     // Replace mappings on all consequences
-                    causes = Logics.buildCauses(mappingList[i].__facts__);
+                    causes = Logics.buildCauses(mappingList[i]._facts_);
                     iterationConsequences = [];
                     for (var j = 0; j < rule.consequences.length; j++) {
                         consequence = this.substituteFactVariables(mappingList[i], rule.consequences[j], causes, rule)
@@ -136,7 +136,7 @@ Solver = {
                         iterationConsequences.push(consequence)
                     }
                     try {
-                        Logics.addConsequences(mappingList[i].__facts__, iterationConsequences);
+                        Logics.addConsequences(mappingList[i]._facts_, iterationConsequences);
                     } catch(e) {
                         throw "Error when trying to add consequences on the implicit fact.";
                     }
@@ -258,7 +258,7 @@ Solver = {
                 // ... or build a fresh one if it does not exist
                 if (mapping === undefined) {
                     mapping = {};
-                    mapping.__facts__ = [];
+                    mapping._facts_ = [];
                 }
 
                 // Update the mapping using pattern matching
@@ -327,7 +327,7 @@ Solver = {
 
         // Merges local and global mapping
         for (var mapKey in mapping) {
-            if (mapKey == '__facts__') {
+            if (mapKey == '_facts_') {
                 localMapping[mapKey] = Utils.uniques(mapping[mapKey], [fact]);
             } else {
                 for (key in localMapping) {
@@ -369,7 +369,7 @@ Solver = {
      */
     substituteElementVariablesWithMapping: function(elem, mapping) {
         if(Logics.isBNode(elem)) {
-            return Logics.skolemize(mapping.__facts__, elem);
+            return Logics.skolemize(mapping._facts_, elem);
         } else if(Logics.isVariable(elem)) {
             if (mapping[elem] !== undefined) {
                 return mapping[elem]

@@ -49,6 +49,32 @@ Dictionary.fromFacts = function(facts) {
 }
 
 /**
+ * Checks if an object is an instance of Dictionary
+ * @param {*} obj - The object to check
+ * @returns {boolean} - True if obj is a Dictionary instance, false otherwise
+ */
+Dictionary.isDictionary = function(obj) {
+    if (!obj || typeof obj !== 'object') return false;
+
+    // Check for required instance methods
+    const requiredMethods = [
+        'clone',
+        'turnOnForgetting',
+        'turnOffForgetting',
+        'resolveGraph',
+        'clear',
+        'get',
+        'put',
+        'putIndex',
+        'getIndex'
+    ];
+
+    return requiredMethods.every(method =>
+        typeof obj[method] === 'function'
+    ) && obj.dict !== undefined && obj.index !== undefined;
+};
+
+/**
  * Return a copy of this dictionary.
  * Facts are copied by reference, but the dict is independent,
  * and thus adds and deletions do not affect the original.
@@ -261,21 +287,6 @@ Dictionary.prototype.explicitGraphs = function(graph) {
 }
 
 /**
- * Get all explicit facts from full dictionary graph as turtle.
- * @returns {Array}
- */
-Dictionary.prototype.explicitGraphs = function(graph) {
-    let explicitGraphs = []
-    for (let graph in this.dict) {
-        explicitGraphs.push({
-            name: graph,
-            content: ParsingInterface.factsToTurtle(Logics.getOnlyExplicitFacts(this.values(graph)))
-        })
-    }
-    return explicitGraphs
-}
-
-/**
  * Get all all facts from full dictionary graph as turtle.
  * @returns {Array}
  */
@@ -366,53 +377,49 @@ Dictionary.prototype.flatten = function() {
     const resultMap = new Map();
     let factIdCounter = 0;
     let ruleIdCounter = 0;
-    
+
     // Process each graph in the dictionary
     for (const graphUri in this.dict) {
         const graphMap = new Map();
         const processedObjects = new Set(); // Track processed objects to avoid cycles
-        
+        const objectMap = new Map(); // Map to store original objects by their IDs
+
         // Use a queue for iterative traversal instead of recursion
         const queue = [];
-        
-        // Add the dictionary structure to the queue
+
+        // Add only the dictionary structure to the queue
         queue.push(this.dict[graphUri]);
-        
-        // Add the index structure to the queue if it exists
-        if (this.index && this.index[graphUri]) {
-            queue.push(this.index[graphUri]);
-        }
-        
-        // Process the queue
+
+        // First pass: assign IDs to all Fact and Rule objects
         while (queue.length > 0) {
             const obj = queue.shift();
-            
+
             // Skip if null, undefined, or already processed
             if (!obj || typeof obj !== 'object' || processedObjects.has(obj)) {
                 continue;
             }
-            
+
             // Mark as processed to avoid cycles
             processedObjects.add(obj);
-            
+
             // Handle Fact instances
             if (obj instanceof Fact) {
                 // Skip facts with literal subjects
                 if (obj.subject && obj.subject.indexOf(`"`) === 0) {
                     continue;
                 }
-                
+
                 // Assign a unique ID if not already assigned
                 if (!obj._id) {
                     obj._id = `fact_${factIdCounter++}`;
                 }
-                
+
                 // Add type property
                 obj._type = 'Fact';
-                
-                // Add to graph map
-                graphMap.set(obj._id, obj);
-                
+
+                // Store the original object in the map
+                objectMap.set(obj._id, obj);
+
                 // Add all properties to the queue for further processing
                 for (const key in obj) {
                     if (Object.prototype.hasOwnProperty.call(obj, key) && key !== '_id' && key !== '_type') {
@@ -421,20 +428,20 @@ Dictionary.prototype.flatten = function() {
                 }
                 continue;
             }
-            
+
             // Handle Rule instances
             if (obj instanceof Rule) {
                 // Assign a unique ID if not already assigned
                 if (!obj._id) {
                     obj._id = `rule_${ruleIdCounter++}`;
                 }
-                
+
                 // Add type property
                 obj._type = 'Rule';
-                
-                // Add to graph map
-                graphMap.set(obj._id, obj);
-                
+
+                // Store the original object in the map
+                objectMap.set(obj._id, obj);
+
                 // Add all properties to the queue for further processing
                 for (const key in obj) {
                     if (Object.prototype.hasOwnProperty.call(obj, key) && key !== '_id' && key !== '_type') {
@@ -443,7 +450,7 @@ Dictionary.prototype.flatten = function() {
                 }
                 continue;
             }
-            
+
             // Handle arrays
             if (Array.isArray(obj)) {
                 for (let i = 0; i < obj.length; i++) {
@@ -451,7 +458,7 @@ Dictionary.prototype.flatten = function() {
                 }
                 continue;
             }
-            
+
             // Handle Maps
             if (obj instanceof Map) {
                 for (const [key, value] of obj.entries()) {
@@ -459,7 +466,7 @@ Dictionary.prototype.flatten = function() {
                 }
                 continue;
             }
-            
+
             // For regular objects, add all properties to the queue
             for (const key in obj) {
                 if (Object.prototype.hasOwnProperty.call(obj, key)) {
@@ -467,11 +474,123 @@ Dictionary.prototype.flatten = function() {
                 }
             }
         }
-        
+
+        // Second pass: create flattened objects with references replaced by {_id, _type}
+        processedObjects.clear();
+        queue.length = 0;
+        queue.push(this.dict[graphUri]);
+
+        // Process all objects in the objectMap to create flattened versions
+        for (const [id, obj] of objectMap.entries()) {
+            // Create a flattened copy of the object
+            const flattenedObj = { ...obj };
+
+            // Add to graph map
+            graphMap.set(id, flattenedObj);
+
+            // Process all properties to replace references
+            for (const key in flattenedObj) {
+                if (Object.prototype.hasOwnProperty.call(flattenedObj, key) && key !== '_id' && key !== '_type') {
+                    const value = flattenedObj[key];
+
+                    // Replace Fact or Rule references with {_id, _type} objects
+                    if (value instanceof Fact || value instanceof Rule) {
+                        flattenedObj[key] = { _id: value._id, _type: value._type };
+                    } else if (Array.isArray(value)) {
+                        // Handle arrays of Facts or Rules
+                        flattenedObj[key] = value.map(item => {
+                            if (item instanceof Fact || item instanceof Rule) {
+                                return { _id: item._id, _type: item._type };
+                            }
+                            return item;
+                        });
+                    } else if (typeof value === 'object' && value !== null) {
+                        // Handle nested objects - recursively flatten them
+                        const flattenedNested = {};
+                        for (const nestedKey in value) {
+                            if (Object.prototype.hasOwnProperty.call(value, nestedKey)) {
+                                const nestedValue = value[nestedKey];
+                                if (nestedValue instanceof Fact || nestedValue instanceof Rule) {
+                                    flattenedNested[nestedKey] = { _id: nestedValue._id, _type: nestedValue._type };
+                                } else if (Array.isArray(nestedValue)) {
+                                    flattenedNested[nestedKey] = nestedValue.map(item => {
+                                        if (item instanceof Fact || item instanceof Rule) {
+                                            return { _id: item._id, _type: item._type };
+                                        }
+                                        return item;
+                                    });
+                                } else {
+                                    flattenedNested[nestedKey] = nestedValue;
+                                }
+                            }
+                        }
+                        flattenedObj[key] = flattenedNested;
+                    }
+                }
+            }
+        }
+
+        // Process the rest of the objects in the dictionary
+        // this might not be necessary, but seems harmless
+        while (queue.length > 0) {
+            const obj = queue.shift();
+
+            // Skip if null, undefined, or already processed
+            if (!obj || typeof obj !== 'object' || processedObjects.has(obj)) {
+                continue;
+            }
+
+            // Mark as processed to avoid cycles
+            processedObjects.add(obj);
+
+            // Skip Fact and Rule instances as they've already been processed
+            if (obj instanceof Fact || obj instanceof Rule) {
+                continue;
+            }
+
+            // Handle arrays
+            if (Array.isArray(obj)) {
+                for (let i = 0; i < obj.length; i++) {
+                    queue.push(obj[i]);
+                }
+                continue;
+            }
+
+            // Handle Maps
+            if (obj instanceof Map) {
+                for (const [key, value] of obj.entries()) {
+                    queue.push(value);
+                }
+                continue;
+            }
+
+            // For regular objects, process all properties
+            for (const key in obj) {
+                if (Object.prototype.hasOwnProperty.call(obj, key)) {
+                    const value = obj[key];
+
+                    // Replace Fact or Rule references with {_id, _type} objects
+                    if (value instanceof Fact || value instanceof Rule) {
+                        obj[key] = { _id: value._id, _type: value._type };
+                    } else if (Array.isArray(value)) {
+                        // Handle arrays of Facts or Rules
+                        obj[key] = value.map(item => {
+                            if (item instanceof Fact || item instanceof Rule) {
+                                return { _id: item._id, _type: item._type };
+                            }
+                            return item;
+                        });
+                    } else if (typeof value === 'object' && value !== null) {
+                        queue.push(value);
+                    }
+                }
+            }
+        }
+
         // Add the graph map to the result map
         resultMap.set(graphUri, graphMap);
     }
-    
+
     return resultMap;
 }
 

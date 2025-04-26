@@ -12,10 +12,12 @@ const Utils = require('../Utils');
  * @constructor
  */
 Rule = function(slf, srf, name, ruleType = Rule.types.CUSTOM) {
+    slf = slf || [];
+    this._type = "Rule";
     this.name = name;
     this.causes = [];
     this.operatorCauses = [];
-    this.consequences = srf;
+    this.consequences = srf || [];
     this.constants = [];
     this.dependentRules = [];
     this.matches = {};
@@ -36,6 +38,12 @@ Rule = function(slf, srf, name, ruleType = Rule.types.CUSTOM) {
         this.constants = Utils.uniques(this.constants, srf[i].constants);
     }
     this.orderCausesByMostRestrictive();
+};
+
+Rule.clone = function(rule) {
+    const _rule = new Rule();
+    Object.assign(_rule, rule);
+    return _rule;
 };
 
 Rule.types = {

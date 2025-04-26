@@ -164,6 +164,20 @@ ReasoningEngine = {
                         // problem: reasoning my assert new I's
                         // that are already known to the KB, from before
                         FiAddNew = _.differenceBy(FiAddNew,KB,"asString");
+
+                        // Check for breakpoint condition
+                        if (false) {
+                            for (let i = 0; i < FiAddNew.length; i++) {
+                                const fact = FiAddNew[i];
+                                if (fact.subject &&
+                                  fact.subject.includes("talent-yuko-kobayashi") &&
+                                  fact.object &&
+                                  fact.object.includes("Statement")) {
+                                    console.log("Breakpoint hit: Found fact with talent-yuko-kobayashi subject and Statement object", fact);
+                                }
+                            }
+                        }
+
                         if (!Utils.containsSubset(FiAdd, FiAddNew)) {
                             // remember the new I in the total set, without duplicates
                             FiAdd = Utils.uniques(FiAdd, FiAddNew);

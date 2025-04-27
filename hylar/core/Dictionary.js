@@ -546,10 +546,10 @@ Dictionary.prototype.loadMap = function(map, opts) {
     opts = opts || {};
     opts.reload = opts.reload !== false;
     if (opts.reload) {
-        this.dict = dict || {
+        this.dict = {
             '#default': {}
         };
-        this.index = index || {
+        this.index = {
             "#default": {
                 predicate: {
                     subject: {

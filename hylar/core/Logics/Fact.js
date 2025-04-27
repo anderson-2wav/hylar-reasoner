@@ -77,6 +77,17 @@ Fact.isFact = function(obj) {
     return obj && typeof obj === 'object' && typeof obj.isValid === 'function';
 };
 
+/**
+ * A Fact which contains wildcards to be used as Rule causes.
+ * @param obj
+ */
+Fact.isCause = function(obj) {
+    return typeof obj === "object" &&
+      ((obj.subject && obj.subject[0] === "?") ||
+        (obj.predicate && obj.predicate[0] === "?") ||
+        (obj.object && obj.object[0] === "?"));
+};
+
 Fact.prototype = {
 
     /**

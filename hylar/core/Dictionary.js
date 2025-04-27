@@ -682,7 +682,9 @@ Dictionary.prototype.loadMap = function(map, opts) {
         // Fourth pass: add instances to the dictionary using this.put
         for (const [id, instance] of objectMap.entries()) {
             if (Fact.isFact(instance)) {
-                this.put(instance, graphUri);
+                if (!Fact.isCause(instance)) {
+                    this.put(instance, graphUri);
+                }
             }
         }
     }

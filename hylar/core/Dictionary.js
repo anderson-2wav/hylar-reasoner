@@ -538,7 +538,11 @@ Dictionary.prototype.flattenToMap = function() {
             }
         }
     }
-
+    // finally, we need to save to other fields of the Dictionary itself
+    const _dict = Dictionary.clone(this);
+    delete _dict.dict;
+    delete _dict.index;
+    resultMap.set("dictionary", _dict);
     return resultMap;
 }
 
@@ -546,6 +550,10 @@ Dictionary.prototype.loadMap = function(map, opts) {
     opts = opts || {};
     opts.reload = opts.reload !== false;
     if (opts.reload) {
+        const details = map.get("dictionary");
+        if (details) {
+            Object.assign(this.dict,details);
+        }
         this.dict = {
             '#default': {}
         };
@@ -560,6 +568,9 @@ Dictionary.prototype.loadMap = function(map, opts) {
         }
     }
     for (const [graphUri, graphMap] of map.entries()) {
+        if (graphUri === "dictionary") {
+            continue;
+        }
         console.log(`${graphUri} graphMap has ${graphMap.size} entries`);
         // First pass: populate objectMap with all objects converted to instances
         const objectMap = new Map();

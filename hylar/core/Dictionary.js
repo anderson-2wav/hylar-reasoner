@@ -381,6 +381,7 @@ Dictionary.prototype.flatten = function() {
     // Process each graph in the dictionary
     for (const graphUri in this.dict) {
         const graphMap = new Map();
+        resultMap.set(graphUri, graphMap);
         const processedObjects = new Set(); // Track processed objects to avoid cycles
         const objectMap = new Map(); // Map to store original objects by their IDs
 
@@ -529,12 +530,58 @@ Dictionary.prototype.flatten = function() {
                 }
             }
         }
+    }
 
-        // Process the rest of the objects in the dictionary
-        // this might not be necessary, but seems harmless
+    return resultMap;
+}
+
+Dictionary.prototype.loadMap = function(map) {
+    for (const [graphUri, graphMap] of map.entries()) {
+        console.log(`${graphUri} graphMap has ${graphMap.size} entries`);
+        // First pass: populate objectMap with all objects converted to instances
+        const objectMap = new Map();
+        for (const [id, obj] of graphMap.entries()) {
+            let replacement;
+            switch (obj._type) {
+                case "Fact":
+                    if (!Fact.isFact(obj)) {
+                        replacement = Fact.clone(obj);
+                    }
+                    break;
+                case "Rule":
+                    if (!Rule.isRule(obj)) {
+                        replacement = Rule.clone(obj);
+                    }
+                    break;
+                case "Dictionary":
+                    if (!Dictionary.isDictionary(obj)) {
+                        replacement = Dictionary.clone(obj);
+                    }
+                    break;
+                default:
+            }
+            if (replacement) {
+                objectMap.set(id, replacement);
+            }
+            else {
+                objectMap.set(id, obj);
+            }
+        }
+        console.log(`${graphUri} objectMap has ${objectMap.size} entries`);
+
+        // next pass: replace all {_id, _type} references with actual instances
+        // Use a queue-based approach to avoid recursion and potential stack overflow
+        const queue = [];
+        const processedObjects = new Set();
+
+        // Add all instances to the queue for processing
+        for (const [id, instance] of objectMap.entries()) {
+            queue.push(instance);
+        }
+
+        // Process all objects in the queue
         while (queue.length > 0) {
             const obj = queue.shift();
-
             // Skip if null, undefined, or already processed
             if (!obj || typeof obj !== 'object' || processedObjects.has(obj)) {
                 continue;
@@ -543,55 +590,81 @@ Dictionary.prototype.flatten = function() {
             // Mark as processed to avoid cycles
             processedObjects.add(obj);
 
-            // Skip Fact and Rule instances as they've already been processed
-            if (obj instanceof Fact || obj instanceof Rule) {
-                continue;
-            }
-
-            // Handle arrays
-            if (Array.isArray(obj)) {
-                for (let i = 0; i < obj.length; i++) {
-                    queue.push(obj[i]);
-                }
-                continue;
-            }
-
-            // Handle Maps
-            if (obj instanceof Map) {
-                for (const [key, value] of obj.entries()) {
-                    queue.push(value);
-                }
-                continue;
-            }
-
-            // For regular objects, process all properties
+            // Process all properties of the object
             for (const key in obj) {
                 if (Object.prototype.hasOwnProperty.call(obj, key)) {
                     const value = obj[key];
 
-                    // Replace Fact or Rule references with {_id, _type} objects
-                    if (value instanceof Fact || value instanceof Rule) {
-                        obj[key] = { _id: value._id, _type: value._type };
-                    } else if (Array.isArray(value)) {
-                        // Handle arrays of Facts or Rules
-                        obj[key] = value.map(item => {
-                            if (item instanceof Fact || item instanceof Rule) {
-                                return { _id: item._id, _type: item._type };
+                    // Replace {_id, _type} references with actual instances
+                    if (value && typeof value === 'object' && value._id && value._type) {
+                        let replacement;
+                        const pojo = objectMap.get(value._id);
+                        if (pojo) {
+                            switch (value._type) {
+                                case "Fact":
+                                    replacement = Fact.clone(pojo);
+                                    break;
+                                case "Rule":
+                                    replacement = Rule.clone(pojo);
+                                    break;
+                                case "Dictionary":
+                                    replacement = Dictionary.clone(pojo);
+                                    break;
+                                default:
                             }
-                            return item;
-                        });
+                        }
+                        if (replacement) {
+                            obj[key] = replacement;
+                        }
+                    } else if (Array.isArray(value)) {
+                        // Handle arrays of references
+                        for (let i = 0; i < value.length; i++) {
+                            const item = value[i];
+                            if (item && typeof item === 'object') {
+                                // Process the item directly instead of pushing it to the queue
+                                // This ensures changes are reflected in the array
+                                if (item._id && item._type) {
+                                    let replacement;
+                                    const pojo = objectMap.get(item._id);
+                                    if (pojo) {
+                                        switch (item._type) {
+                                            case "Fact":
+                                                replacement = Fact.clone(pojo);
+                                                break;
+                                            case "Rule":
+                                                replacement = Rule.clone(pojo);
+                                                break;
+                                            case "Dictionary":
+                                                replacement = Dictionary.clone(pojo);
+                                                break;
+                                            default:
+                                        }
+                                    }
+                                    if (replacement) {
+                                        value[i] = replacement;
+                                    }
+                                }
+                                // Still add the item to the queue for further processing
+                                queue.push(value[i]);
+                            }
+                        }
                     } else if (typeof value === 'object' && value !== null) {
+                        // Add nested objects to the queue for processing
                         queue.push(value);
                     }
                 }
             }
         }
 
-        // Add the graph map to the result map
-        resultMap.set(graphUri, graphMap);
+        // Fourth pass: add instances to the dictionary using this.put
+        for (const [id, instance] of objectMap.entries()) {
+            if (Fact.isFact(instance)) {
+                this.put(instance, graphUri);
+            }
+        }
     }
 
-    return resultMap;
-}
+    return this;
+};
 
 module.exports = Dictionary;

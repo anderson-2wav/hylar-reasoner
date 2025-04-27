@@ -373,7 +373,7 @@ Dictionary.prototype.getFactFromStringRepresentation = function(factStr, graph) 
     return false;
 }
 
-Dictionary.prototype.flatten = function() {
+Dictionary.prototype.flattenToMap = function() {
     const resultMap = new Map();
     let factIdCounter = 0;
     let ruleIdCounter = 0;

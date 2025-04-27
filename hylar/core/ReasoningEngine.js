@@ -161,7 +161,7 @@ ReasoningEngine = {
                 Solver.evaluateRuleSet(Rins, insertionSet, KB, D,undefined, undefined, whitelist)
                     .then(function(values) {
                         FiAddNew = values.cons;
-                        // problem: reasoning my assert new I's
+                        // problem: reasoning may assert new I's
                         // that are already known to the KB, from before
                         FiAddNew = _.differenceBy(FiAddNew,KB,"asString");
 

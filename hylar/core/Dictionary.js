@@ -535,7 +535,23 @@ Dictionary.prototype.flatten = function() {
     return resultMap;
 }
 
-Dictionary.prototype.loadMap = function(map) {
+Dictionary.prototype.loadMap = function(map, opts) {
+    opts = opts || {};
+    opts.reload = opts.reload !== false;
+    if (opts.reload) {
+        this.dict = dict || {
+            '#default': {}
+        };
+        this.index = index || {
+            "#default": {
+                predicate: {
+                    subject: {
+                        object: null
+                    }
+                }
+            }
+        }
+    }
     for (const [graphUri, graphMap] of map.entries()) {
         console.log(`${graphUri} graphMap has ${graphMap.size} entries`);
         // First pass: populate objectMap with all objects converted to instances

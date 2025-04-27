@@ -728,22 +728,30 @@ class Hylar {
         let derivations = await Reasoner.evaluate(FeIns, FeDel, this.dict, this.rMethod, this.rules, whitelist);
         const endReasoning = Date.now();
         Hylar.notify(`Finished Reasoner.evaluate in ${Math.round((endReasoning-startReasoning)/1000)} seconds.`);
-        // Use callback to pass derivations back up the chain to the external application
-        syncCB(derivations);
 
+        let result;
         // Only actually update the fact store if we intend to
         if (persistDerivations === true) {
-          this.registerDerivations(derivations, graph);
+            this.registerDerivations(derivations, graph);
 
-          let updates = {
-            insert: ParsingInterface.factsToTurtle(derivations.additions),
-            delete: ParsingInterface.factsToTurtle(derivations.deletions)
-          }
+            let updates = {
+                insert: ParsingInterface.factsToTurtle(derivations.additions),
+                delete: ParsingInterface.factsToTurtle(derivations.deletions)
+            }
 
-          if(updates.delete != '') return this.sm.delete(updates.delete, graph);
-          if(updates.insert != '') return this.sm.insert(updates.insert, graph);
+            if(updates.delete != '') {
+                result = this.sm.delete(updates.delete, graph);
+            }
+            if(updates.insert != '') {
+                result = this.sm.insert(updates.insert, graph);
+            }
         }
 
+        // Use callback to pass derivations back up the chain to the external application
+        syncCB(derivations);
+        if (result) {
+            return result;
+        }
         return true
     }
 

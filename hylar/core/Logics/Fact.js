@@ -9,6 +9,9 @@ var Utils = require('../Utils');
  * @param pred fact's/axiom name (e.g. subClassOf)
  * @param sub left individual
  * @param obj right individual
+ * @param {Fact[]} [causes]
+ * @param {boolean} [expl] explicit
+ * @param {string[]} graphs seems unused by old hylar, but now used in serialization
  * @param originFacts array of facts causing this
  * @constructor
  */
@@ -66,7 +69,7 @@ Fact.clone = function(fact) {
  * Static method to check if an object is a Fact instance.
  * This checks for the presence of the isValid function, which will only exist
  * on actual Fact instances and not on plain objects.
- * 
+ *
  * @param {*} obj - The object to check
  * @returns {boolean} - True if the object is a Fact instance, false otherwise
  */

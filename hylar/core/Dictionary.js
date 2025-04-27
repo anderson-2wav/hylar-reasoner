@@ -414,6 +414,10 @@ Dictionary.prototype.flatten = function() {
                 if (!obj._id) {
                     obj._id = `fact_${factIdCounter++}`;
                 }
+                // Assign graphUri if not already assigned
+                if (!obj.graphs.includes(graphUri)) {
+                    obj.graphs.push(graphUri);
+                }
 
                 // Add type property
                 obj._type = 'Fact';
@@ -436,7 +440,10 @@ Dictionary.prototype.flatten = function() {
                 if (!obj._id) {
                     obj._id = `rule_${ruleIdCounter++}`;
                 }
-
+                // Assign graphUri if not already assigned
+                if (!obj.graphs.includes(graphUri)) {
+                    obj.graphs.push(graphUri);
+                }
                 // Add type property
                 obj._type = 'Rule';
 

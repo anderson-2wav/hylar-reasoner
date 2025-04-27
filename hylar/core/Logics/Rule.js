@@ -21,7 +21,8 @@ Rule = function(slf, srf, name, ruleType = Rule.types.CUSTOM) {
     this.constants = [];
     this.dependentRules = [];
     this.matches = {};
-    this.type = ruleType
+    this.type = ruleType;
+    this.graphs = []; // added by 2wav for serialization
 
     for (var i = 0; i < slf.length; i++) {
         if (!slf[i].operatorPredicate) {
@@ -53,7 +54,7 @@ Rule.clone = function(rule) {
  */
 Rule.isRule = function(obj) {
     if (!obj || typeof obj !== 'object') return false;
-    
+
     // Check for required instance methods
     const requiredMethods = [
         'toString',
@@ -63,8 +64,8 @@ Rule.isRule = function(obj) {
         'addDependentRule',
         'toCHR'
     ];
-    
-    return requiredMethods.every(method => 
+
+    return requiredMethods.every(method =>
         typeof obj[method] === 'function'
     ) && obj._type === "Rule";
 };

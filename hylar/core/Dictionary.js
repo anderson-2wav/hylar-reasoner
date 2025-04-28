@@ -10,8 +10,8 @@ const Logics = require("./Logics/Logics");
  * @type {{substractFactSets: Function, combine: Function}|exports|module.exports}
  */
 
-const Utils = require('./Utils')
-const ParsingInterface = require('./ParsingInterface')
+const Utils = require('./Utils');
+const ParsingInterface = require('./ParsingInterface');
 const Fact = require('./Logics/Fact');
 const Rule = require('./Logics/Rule');
 
@@ -547,6 +547,219 @@ Dictionary.prototype.flattenToMap = function() {
     resultMap.set("dictionary", _dict);
     return resultMap;
 }
+
+/**
+ *
+ * @param {MongoDB.Collection} collection
+ * @return {Promise<void>}
+ */
+Dictionary.prototype.flattenToCollection = async function(collection) {
+    if (!collection) {
+        throw new Error("Collection is required for flattenToCollection");
+    }
+
+    // Clear the collection first
+    await collection.drop().catch(err => {
+        // Ignore error if collection doesn't exist
+        if (err.code !== 26) {
+            console.error("Error dropping collection:", err);
+        }
+    });
+
+    let factIdCounter = 0;
+    let ruleIdCounter = 0;
+    const processedObjects = new Set(); // Track processed objects to avoid cycles
+    const objectMap = new Map(); // Map to store original objects by their IDs
+
+    // Process each graph in the dictionary
+    for (const graphUri in this.dict) {
+        const queue = [];
+        queue.push(this.dict[graphUri]);
+
+        // First pass: assign IDs to all Fact and Rule objects
+        while (queue.length > 0) {
+            const obj = queue.shift();
+
+            // Skip if null, undefined, or already processed
+            if (!obj || typeof obj !== 'object' || processedObjects.has(obj)) {
+                continue;
+            }
+
+            // Mark as processed to avoid cycles
+            processedObjects.add(obj);
+
+            // Handle Fact instances
+            if (obj instanceof Fact) {
+                // Skip facts with literal subjects
+                if (obj.subject && obj.subject.indexOf(`"`) === 0) {
+                    continue;
+                }
+
+                // Assign a unique ID if not already assigned
+                if (!obj._id) {
+                    obj._id = `fact_${factIdCounter++}`;
+                }
+                // Assign graphUri if not already assigned
+                if (!obj.graphs.includes(graphUri)) {
+                    obj.graphs.push(graphUri);
+                }
+
+                // Add type property
+                obj._type = 'Fact';
+
+                // Store the original object in the map
+                objectMap.set(obj._id, obj);
+
+                // Add all properties to the queue for further processing
+                for (const key in obj) {
+                    if (Object.prototype.hasOwnProperty.call(obj, key) && key !== '_id' && key !== '_type') {
+                        queue.push(obj[key]);
+                    }
+                }
+                continue;
+            }
+
+            // Handle Rule instances
+            if (obj instanceof Rule) {
+                // Assign a unique ID if not already assigned
+                if (!obj._id) {
+                    obj._id = `rule_${ruleIdCounter++}`;
+                }
+                // Assign graphUri if not already assigned
+                if (!obj.graphs.includes(graphUri)) {
+                    obj.graphs.push(graphUri);
+                }
+                // Add type property
+                obj._type = 'Rule';
+
+                // Store the original object in the map
+                objectMap.set(obj._id, obj);
+
+                // Add all properties to the queue for further processing
+                for (const key in obj) {
+                    if (Object.prototype.hasOwnProperty.call(obj, key) && key !== '_id' && key !== '_type') {
+                        queue.push(obj[key]);
+                    }
+                }
+                continue;
+            }
+
+            // Handle arrays
+            if (Array.isArray(obj)) {
+                for (let i = 0; i < obj.length; i++) {
+                    queue.push(obj[i]);
+                }
+                continue;
+            }
+
+            // Handle Maps
+            if (obj instanceof Map) {
+                for (const [key, value] of obj.entries()) {
+                    queue.push(value);
+                }
+                continue;
+            }
+
+            // For regular objects, add all properties to the queue
+            for (const key in obj) {
+                if (Object.prototype.hasOwnProperty.call(obj, key)) {
+                    queue.push(obj[key]);
+                }
+            }
+        }
+
+        // Second pass: create flattened objects with references replaced by {_id, _type}
+        processedObjects.clear();
+        queue.length = 0;
+        queue.push(this.dict[graphUri]);
+
+        // Process all objects in the objectMap to create flattened versions
+        const CHUNK_SIZE = 1000;
+        let currentChunk = [];
+        let processedCount = 0;
+
+        // Process all objects in the objectMap
+        for (const [id, obj] of objectMap.entries()) {
+            // Create a flattened copy of the object
+            const flattenedObj = { ...obj };
+
+            // Process all properties to replace references
+            for (const key in flattenedObj) {
+                if (Object.prototype.hasOwnProperty.call(flattenedObj, key) && key !== '_id' && key !== '_type') {
+                    const value = flattenedObj[key];
+
+                    // Replace Fact or Rule references with {_id, _type} objects
+                    if (value instanceof Fact || value instanceof Rule) {
+                        flattenedObj[key] = { _id: value._id, _type: value._type };
+                    } else if (Array.isArray(value)) {
+                        // Handle arrays of Facts or Rules
+                        flattenedObj[key] = value.map(item => {
+                            if (item instanceof Fact || item instanceof Rule) {
+                                return { _id: item._id, _type: item._type };
+                            }
+                            return item;
+                        });
+                    } else if (typeof value === 'object' && value !== null) {
+                        // Handle nested objects - recursively flatten them
+                        const flattenedNested = {};
+                        for (const nestedKey in value) {
+                            if (Object.prototype.hasOwnProperty.call(value, nestedKey)) {
+                                const nestedValue = value[nestedKey];
+                                if (nestedValue instanceof Fact || nestedValue instanceof Rule) {
+                                    flattenedNested[nestedKey] = { _id: nestedValue._id, _type: nestedValue._type };
+                                } else if (Array.isArray(nestedValue)) {
+                                    flattenedNested[nestedKey] = nestedValue.map(item => {
+                                        if (item instanceof Fact || item instanceof Rule) {
+                                            return { _id: item._id, _type: item._type };
+                                        }
+                                        return item;
+                                    });
+                                } else {
+                                    flattenedNested[nestedKey] = nestedValue;
+                                }
+                            }
+                        }
+                        flattenedObj[key] = flattenedNested;
+                    }
+                }
+            }
+
+            // Add to current chunk
+            currentChunk.push(flattenedObj);
+
+            // When chunk is full, insert it into the collection
+            if (currentChunk.length >= CHUNK_SIZE) {
+                const bulkOp = collection.initializeUnorderedBulkOp();
+                for (const item of currentChunk) {
+                    bulkOp.insert(item);
+                }
+                await bulkOp.execute();
+                processedCount += currentChunk.length;
+                console.log(`Processed ${processedCount} objects for graph ${graphUri}`);
+                currentChunk = [];
+            }
+        }
+
+        // Process any remaining items in the last chunk
+        if (currentChunk.length > 0) {
+            const bulkOp = collection.initializeUnorderedBulkOp();
+            for (const item of currentChunk) {
+                bulkOp.insert(item);
+            }
+            await bulkOp.execute();
+            processedCount += currentChunk.length;
+            console.log(`Processed ${processedCount} objects for graph ${graphUri}`);
+        }
+    }
+
+    // Finally, save the Dictionary itself (without dict and index)
+    const _dict = Dictionary.clone(this);
+    delete _dict.dict;
+    delete _dict.index;
+    await collection.insertOne(_dict);
+
+    return collection;
+};
 
 Dictionary.prototype.loadMap = function(map, opts) {
     opts = opts || {};

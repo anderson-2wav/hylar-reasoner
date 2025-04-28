@@ -918,4 +918,207 @@ Dictionary.prototype.loadMap = function(map, opts) {
     return this;
 };
 
+Dictionary.prototype.loadFromCollection = async function(collection, opts) {
+    opts = opts || {};
+    opts.reload = opts.reload !== false;
+    
+    if (opts.reload) {
+        // Find the Dictionary document
+        const details = await collection.findOne({ _type: "Dictionary" });
+        if (details) {
+            Object.assign(this, details);
+        }
+        this.dict = {
+            '#default': {}
+        };
+        this.index = {
+            "#default": {
+                predicate: {
+                    subject: {
+                        object: null
+                    }
+                }
+            }
+        };
+    }
+
+    // First pass: populate objectMap with all objects converted to instances
+    const objectMap = new Map();
+    
+    // Use cursor to process documents in batches
+    const cursor = collection.find({ _type: { $ne: "Dictionary" } });
+    let processedCount = 0;
+    const BATCH_SIZE = 1000;
+    
+    for await (const doc of cursor) {
+        if (!doc) continue;
+        
+        let replacement;
+        switch (doc._type) {
+            case "Fact":
+                if (!Fact.isFact(doc)) {
+                    replacement = Fact.clone(doc);
+                }
+                break;
+            case "Rule":
+                if (!Rule.isRule(doc)) {
+                    replacement = Rule.clone(doc);
+                }
+                break;
+            case "Dictionary":
+                if (!Dictionary.isDictionary(doc)) {
+                    replacement = Dictionary.clone(doc);
+                }
+                break;
+            default:
+        }
+        
+        if (replacement) {
+            objectMap.set(doc._id, replacement);
+        } else {
+            objectMap.set(doc._id, doc);
+        }
+        
+        processedCount++;
+        
+        // Log progress for large collections
+        if (processedCount % BATCH_SIZE === 0) {
+            console.log(`Processed ${processedCount} documents in first pass`);
+        }
+    }
+    
+    console.log(`First pass complete. Processed ${processedCount} documents.`);
+    console.log(`objectMap has ${objectMap.size} entries`);
+
+    // Second pass: replace all {_id, _type} references with actual instances
+    // Use a queue-based approach to avoid recursion and potential stack overflow
+    const queue = [];
+    const processedObjects = new Set();
+    let secondPassCount = 0;
+
+    // Add all instances to the queue for processing using iterator
+    const iterator = objectMap.values();
+    let iteratorResult = iterator.next();
+    
+    while (!iteratorResult.done) {
+        queue.push(iteratorResult.value);
+        iteratorResult = iterator.next();
+    }
+
+    // Process all objects in the queue
+    while (queue.length > 0) {
+        const obj = queue.shift();
+        // Skip if null, undefined, or already processed
+        if (!obj || typeof obj !== 'object' || processedObjects.has(obj)) {
+            continue;
+        }
+
+        // Mark as processed to avoid cycles
+        processedObjects.add(obj);
+        secondPassCount++;
+
+        // Process all properties of the object
+        for (const key in obj) {
+            if (Object.prototype.hasOwnProperty.call(obj, key)) {
+                const value = obj[key];
+
+                // Replace {_id, _type} references with actual instances
+                if (value && typeof value === 'object' && value._id && value._type) {
+                    let replacement;
+                    const pojo = objectMap.get(value._id);
+                    if (pojo) {
+                        switch (value._type) {
+                            case "Fact":
+                                replacement = Fact.clone(pojo);
+                                break;
+                            case "Rule":
+                                replacement = Rule.clone(pojo);
+                                break;
+                            case "Dictionary":
+                                replacement = Dictionary.clone(pojo);
+                                break;
+                            default:
+                        }
+                    }
+                    if (replacement) {
+                        obj[key] = replacement;
+                    }
+                } else if (Array.isArray(value)) {
+                    // Handle arrays of references
+                    for (let i = 0; i < value.length; i++) {
+                        const item = value[i];
+                        if (item && typeof item === 'object') {
+                            // Process the item directly instead of pushing it to the queue
+                            // This ensures changes are reflected in the array
+                            if (item._id && item._type) {
+                                let replacement;
+                                const pojo = objectMap.get(item._id);
+                                if (pojo) {
+                                    switch (item._type) {
+                                        case "Fact":
+                                            replacement = Fact.clone(pojo);
+                                            break;
+                                        case "Rule":
+                                            replacement = Rule.clone(pojo);
+                                            break;
+                                        case "Dictionary":
+                                            replacement = Dictionary.clone(pojo);
+                                            break;
+                                        default:
+                                    }
+                                }
+                                if (replacement) {
+                                    value[i] = replacement;
+                                }
+                            }
+                            // Still add the item to the queue for further processing
+                            queue.push(value[i]);
+                        }
+                    }
+                } else if (typeof value === 'object' && value !== null) {
+                    // Add nested objects to the queue for processing
+                    queue.push(value);
+                }
+            }
+        }
+        
+        // Log progress for large collections
+        if (secondPassCount % BATCH_SIZE === 0) {
+            console.log(`Processed ${secondPassCount} objects in second pass`);
+        }
+    }
+    
+    console.log(`Second pass complete. Processed ${secondPassCount} objects.`);
+
+    // Third pass: add instances to the dictionary using this.put
+    let thirdPassCount = 0;
+    
+    // Use iterator for the third pass as well
+    const factIterator = objectMap.values();
+    let factIteratorResult = factIterator.next();
+    
+    while (!factIteratorResult.done) {
+        const instance = factIteratorResult.value;
+        if (Fact.isFact(instance)) {
+            if (!Fact.isCause(instance)) {
+                for (const graphUri of instance.graphs || ["#default"]) {
+                    this.put(instance, graphUri);
+                    thirdPassCount++;
+                }
+            }
+        }
+        
+        // Log progress for large collections
+        if (thirdPassCount % BATCH_SIZE === 0) {
+            console.log(`Added ${thirdPassCount} facts to dictionary`);
+        }
+        
+        factIteratorResult = factIterator.next();
+    }
+    
+    console.log(`Third pass complete. Added ${thirdPassCount} facts to dictionary.`);
+
+    return this;
+};
+
 module.exports = Dictionary;

@@ -16,6 +16,8 @@ const Fact = require('./Logics/Fact');
 const Rule = require('./Logics/Rule');
 
 function Dictionary(dict, index) {
+    this._type = "Dictionary";
+    this._id = `dict_${Date.now()}`;
     this.dict = dict || {
         '#default': {}
     };

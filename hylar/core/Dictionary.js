@@ -10,6 +10,8 @@ const Logics = require("./Logics/Logics");
  * @type {{substractFactSets: Function, combine: Function}|exports|module.exports}
  */
 
+const fs = require("fs");
+const _ = require("lodash");
 const Utils = require('./Utils');
 const ParsingInterface = require('./ParsingInterface');
 const Fact = require('./Logics/Fact');
@@ -578,6 +580,9 @@ Dictionary.prototype.flattenToCollection = async function(collection) {
 
         // First pass: assign IDs to all Fact and Rule objects
         while (queue.length > 0) {
+            if (queue.length % 100 === 0) {
+                console.log(`${queue.length} objects in queue to process`);
+            }
             const obj = queue.shift();
 
             // Skip if null, undefined, or already processed
@@ -610,9 +615,15 @@ Dictionary.prototype.flattenToCollection = async function(collection) {
                 // Store the original object in the map
                 objectMap.set(obj._id, obj);
 
-                // Add all properties to the queue for further processing
+                // Add all object properties to the queue for further processing
+                // this covers arrays too.
                 for (const key in obj) {
-                    if (Object.prototype.hasOwnProperty.call(obj, key) && key !== '_id' && key !== '_type') {
+                    if (Object.prototype.hasOwnProperty.call(obj, key) &&
+                      key !== '_id' &&
+                      key !== '_type' &&
+                      obj[key] !== null &&
+                      typeof obj[key] === 'object'
+                    ) {
                         queue.push(obj[key]);
                     }
                 }
@@ -635,9 +646,15 @@ Dictionary.prototype.flattenToCollection = async function(collection) {
                 // Store the original object in the map
                 objectMap.set(obj._id, obj);
 
-                // Add all properties to the queue for further processing
+                // Add all object properties to the queue for further processing
+                // this covers arrays too.
                 for (const key in obj) {
-                    if (Object.prototype.hasOwnProperty.call(obj, key) && key !== '_id' && key !== '_type') {
+                    if (Object.prototype.hasOwnProperty.call(obj, key) &&
+                      key !== '_id' &&
+                      key !== '_type' &&
+                      obj[key] !== null &&
+                      typeof obj[key] === 'object'
+                    ) {
                         queue.push(obj[key]);
                     }
                 }
@@ -660,9 +677,16 @@ Dictionary.prototype.flattenToCollection = async function(collection) {
                 continue;
             }
 
-            // For regular objects, add all properties to the queue
+            // For regular objects,
+            // Add all object properties to the queue for further processing
+            // this covers arrays too.
             for (const key in obj) {
-                if (Object.prototype.hasOwnProperty.call(obj, key)) {
+                if (Object.prototype.hasOwnProperty.call(obj, key) &&
+                  key !== '_id' &&
+                  key !== '_type' &&
+                  obj[key] !== null &&
+                  typeof obj[key] === 'object'
+                ) {
                     queue.push(obj[key]);
                 }
             }
@@ -729,9 +753,139 @@ Dictionary.prototype.flattenToCollection = async function(collection) {
 
             // When chunk is full, insert it into the collection
             if (currentChunk.length >= CHUNK_SIZE) {
+                // we need a check here to be sure that everything got flattened
+                // _.cloneDeepWith is an easy way to inspect the entire depth of an object.
+                // this customizer is used to confirm there are no unflattened instances of Fact or Rule
+                const checkNoFactOrRule = (value, key, object, stack) => {
+                    // console.log("checkNoFactOrRule on key",key);
+                    if (Fact.isFact(value) || Rule.isRule(value)) {
+                        throw new Error(`Found unflattened Fact or Rule ${value._id}`);
+                    }
+                };
+                // first full test blew a gasket on some resource too large.
+                // maybe that could happen if we didn't get out all the circ refs
+                // this doesn't seem to happen, that's good
+                if (false) {
+                    try {
+                        _.cloneDeepWith(currentChunk, checkNoFactOrRule);
+                    }
+                    catch (error) {
+                        console.error(`error somewhere before ${processedCount + currentChunk.length}`, error);
+                        throw error
+                    }
+                }
+
                 const bulkOp = collection.initializeUnorderedBulkOp();
                 for (const item of currentChunk) {
-                    bulkOp.insert(item);
+                    // I think some Facts are too large because of very large _seen Sets.
+                    const _seenLength = item._seen ? Object.keys(item._seen).length : 0;
+                    if (_seenLength > 1000) {
+                        // have to chunk em up.
+                        console.log(`item ${item._id} has ${_seenLength} _seen`);
+                        const _seen = Object.keys(item._seen);
+                        item._seen = {};
+                        // we have to chunk the _seen array, and insert each chunk,
+                        // as an item with an _id thats `${item._id}_seen_${chunkIndex}`
+                        // then insert the chunk _id into the item._seen object.
+
+                        // Chunk the _seen array into smaller pieces
+                        const CHUNK_SIZE = 500; // Smaller chunks for better performance
+                        const numChunks = Math.ceil(_seen.length / CHUNK_SIZE);
+
+                        // Create a new object to store chunk references
+                        const chunkedSeen = {};
+
+                        // Process each chunk
+                        for (let i = 0; i < numChunks; i++) {
+                            const start = i * CHUNK_SIZE;
+                            const end = Math.min(start + CHUNK_SIZE, _seen.length);
+                            const chunk = _seen.slice(start, end);
+
+                            // Create a chunk object with a unique ID
+                            const chunkId = `${item._id}_seen_${i}`;
+                            const chunkObj = {
+                                _id: chunkId,
+                                _type: "SeenChunk",
+                                parentId: item._id,
+                                chunkIndex: i,
+                                totalChunks: numChunks,
+                                values: chunk
+                            };
+                            console.log(`inserting chunk ${chunkId} for ${item._id}`);
+                            // Add the chunk to the current batch
+                            bulkOp.insert(chunkObj);
+
+                            // Store the reference to this chunk in the item's _seen object
+                            chunkedSeen[chunkId] = true;
+                        }
+
+                        // Replace the original _seen with the chunked version
+                        item._seen = chunkedSeen;
+                    }
+                    // or try to catch which thing is really too large
+
+                    let error;
+                    try {
+                        bulkOp.insert(item);
+                    }
+                    catch (e) {
+                        console.error(`error inserting ${item._id}`,e);
+                        error = e;
+                    }
+                    if (error) {
+                        try {
+                            // if the insert fails, then this fails every time
+                            fs.writeFileSync("/tmp/toolarge", JSON.stringify(item,null,2));
+                        }
+                        catch (e) {
+                            console.error(`error stringifying ${item}`,e);
+                            console.error(`what is item?`,item);
+                        }
+                    }
+                    if (error) {
+                        // maybe calc size?
+                        function roughSizeOfObject(object) {
+                            let path = [];
+                            const objectList = new Set();
+                            const stack = [object];
+                            let bytes = 0;
+                            const visited = new Set();
+
+                            while (stack.length) {
+                                const value = stack.pop();
+
+                                switch (typeof value) {
+                                    case 'boolean':
+                                        bytes += 4;
+                                        break;
+                                    case 'string':
+                                        bytes += value.length * 2;
+                                        break;
+                                    case 'number':
+                                        bytes += 8;
+                                        break;
+                                    case 'object':
+                                        if (!objectList.has(value)) {
+                                            objectList.add(value);
+                                            for (const prop in value) {
+                                                if (value.hasOwnProperty(prop)) {
+                                                    stack.push(value[prop]);
+                                                }
+                                            }
+                                        }
+                                        else {
+                                            console.error(`roughSizeOfObject found circular reference on prop ${prop}`);
+                                        }
+                                        break;
+                                }
+                            }
+
+                            return bytes;
+                        }
+                        const size = roughSizeOfObject(item);
+                        console.error("roughSizeOfObject", size/(1024*1024));
+                    }
+
                 }
                 await bulkOp.execute();
                 processedCount += currentChunk.length;
@@ -921,7 +1075,7 @@ Dictionary.prototype.loadMap = function(map, opts) {
 Dictionary.prototype.loadFromCollection = async function(collection, opts) {
     opts = opts || {};
     opts.reload = opts.reload !== false;
-    
+
     if (opts.reload) {
         // Find the Dictionary document
         const details = await collection.findOne({ _type: "Dictionary" });
@@ -944,15 +1098,15 @@ Dictionary.prototype.loadFromCollection = async function(collection, opts) {
 
     // First pass: populate objectMap with all objects converted to instances
     const objectMap = new Map();
-    
+
     // Use cursor to process documents in batches
     const cursor = collection.find({ _type: { $ne: "Dictionary" } });
     let processedCount = 0;
     const BATCH_SIZE = 1000;
-    
+
     for await (const doc of cursor) {
         if (!doc) continue;
-        
+
         let replacement;
         switch (doc._type) {
             case "Fact":
@@ -972,21 +1126,21 @@ Dictionary.prototype.loadFromCollection = async function(collection, opts) {
                 break;
             default:
         }
-        
+
         if (replacement) {
             objectMap.set(doc._id, replacement);
         } else {
             objectMap.set(doc._id, doc);
         }
-        
+
         processedCount++;
-        
+
         // Log progress for large collections
         if (processedCount % BATCH_SIZE === 0) {
             console.log(`Processed ${processedCount} documents in first pass`);
         }
     }
-    
+
     console.log(`First pass complete. Processed ${processedCount} documents.`);
     console.log(`objectMap has ${objectMap.size} entries`);
 
@@ -999,7 +1153,7 @@ Dictionary.prototype.loadFromCollection = async function(collection, opts) {
     // Add all instances to the queue for processing using iterator
     const iterator = objectMap.values();
     let iteratorResult = iterator.next();
-    
+
     while (!iteratorResult.done) {
         queue.push(iteratorResult.value);
         iteratorResult = iterator.next();
@@ -1081,22 +1235,22 @@ Dictionary.prototype.loadFromCollection = async function(collection, opts) {
                 }
             }
         }
-        
+
         // Log progress for large collections
         if (secondPassCount % BATCH_SIZE === 0) {
             console.log(`Processed ${secondPassCount} objects in second pass`);
         }
     }
-    
+
     console.log(`Second pass complete. Processed ${secondPassCount} objects.`);
 
     // Third pass: add instances to the dictionary using this.put
     let thirdPassCount = 0;
-    
+
     // Use iterator for the third pass as well
     const factIterator = objectMap.values();
     let factIteratorResult = factIterator.next();
-    
+
     while (!factIteratorResult.done) {
         const instance = factIteratorResult.value;
         if (Fact.isFact(instance)) {
@@ -1107,15 +1261,15 @@ Dictionary.prototype.loadFromCollection = async function(collection, opts) {
                 }
             }
         }
-        
+
         // Log progress for large collections
         if (thirdPassCount % BATCH_SIZE === 0) {
             console.log(`Added ${thirdPassCount} facts to dictionary`);
         }
-        
+
         factIteratorResult = factIterator.next();
     }
-    
+
     console.log(`Third pass complete. Added ${thirdPassCount} facts to dictionary.`);
 
     return this;

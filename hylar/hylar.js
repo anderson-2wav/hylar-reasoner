@@ -196,6 +196,7 @@ class Hylar {
         this.dict = new Dictionary();
         this.sm = new TripleStorageManager();
         this.sm.init();
+        // TODO Facts have _seen to when they are Causes
         // rules may contain cached reasoning
         this.rules.forEach((r) => {
             (r.causes || []).forEach((c) => {

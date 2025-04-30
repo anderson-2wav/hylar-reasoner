@@ -799,36 +799,36 @@ Dictionary.prototype.flattenToCollection = async function(collection) {
                             // as an item with an _id thats `${item._id}_seen_${chunkIndex}`
                             // then insert the chunk _id into the item._seen object.
 
-                        // Chunk the _seen array into smaller pieces
-                        const CHUNK_SIZE = 500; // Smaller chunks for better performance
-                        const numChunks = Math.ceil(_seen.length / CHUNK_SIZE);
+                            // Chunk the _seen array into smaller pieces
+                            const CHUNK_SIZE = 500; // Smaller chunks for better performance
+                            const numChunks = Math.ceil(_seen.length / CHUNK_SIZE);
 
-                        // Create a new object to store chunk references
-                        const chunkedSeen = {};
+                            // Create a new object to store chunk references
+                            const chunkedSeen = {};
 
-                        // Process each chunk
-                        for (let i = 0; i < numChunks; i++) {
-                            const start = i * CHUNK_SIZE;
-                            const end = Math.min(start + CHUNK_SIZE, _seen.length);
-                            const chunk = _seen.slice(start, end);
+                            // Process each chunk
+                            for (let i = 0; i < numChunks; i++) {
+                                const start = i * CHUNK_SIZE;
+                                const end = Math.min(start + CHUNK_SIZE, _seen.length);
+                                const chunk = _seen.slice(start, end);
 
-                            // Create a chunk object with a unique ID
-                            const chunkId = `${item._id}_seen_${i}`;
-                            const chunkObj = {
-                                _id: chunkId,
-                                _type: "SeenChunk",
-                                parentId: item._id,
-                                chunkIndex: i,
-                                totalChunks: numChunks,
-                                values: chunk
-                            };
-                            console.log(`inserting chunk ${chunkId} for ${item._id}`);
-                            // Add the chunk to the current batch
-                            bulkOp.insert(chunkObj);
+                                // Create a chunk object with a unique ID
+                                const chunkId = `${item._id}_seen_${i}`;
+                                const chunkObj = {
+                                    _id: chunkId,
+                                    _type: "SeenChunk",
+                                    parentId: item._id,
+                                    chunkIndex: i,
+                                    totalChunks: numChunks,
+                                    values: chunk
+                                };
+                                console.log(`inserting chunk ${chunkId} for ${item._id}`);
+                                // Add the chunk to the current batch
+                                bulkOp.insert(chunkObj);
 
-                            // Store the reference to this chunk in the item's _seen object
-                            chunkedSeen[chunkId] = true;
-                        }
+                                // Store the reference to this chunk in the item's _seen object
+                                chunkedSeen[chunkId] = true;
+                            }
 
                             // Replace the original _seen with the chunked version
                             item._seen = chunkedSeen;

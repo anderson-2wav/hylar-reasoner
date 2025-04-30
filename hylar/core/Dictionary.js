@@ -698,7 +698,7 @@ Dictionary.prototype.flattenToCollection = async function(collection) {
         queue.push(this.dict[graphUri]);
 
         // Process all objects in the objectMap to create flattened versions
-        const CHUNK_SIZE = 1000;
+        const CHUNK_SIZE = 500;
         let currentChunk = [];
         let processedCount = 0;
 
@@ -753,19 +753,22 @@ Dictionary.prototype.flattenToCollection = async function(collection) {
 
             // When chunk is full, insert it into the collection
             if (currentChunk.length >= CHUNK_SIZE) {
-                // we need a check here to be sure that everything got flattened
-                // _.cloneDeepWith is an easy way to inspect the entire depth of an object.
-                // this customizer is used to confirm there are no unflattened instances of Fact or Rule
-                const checkNoFactOrRule = (value, key, object, stack) => {
-                    // console.log("checkNoFactOrRule on key",key);
-                    if (Fact.isFact(value) || Rule.isRule(value)) {
-                        throw new Error(`Found unflattened Fact or Rule ${value._id}`);
-                    }
-                };
                 // first full test blew a gasket on some resource too large.
                 // maybe that could happen if we didn't get out all the circ refs
                 // this doesn't seem to happen, that's good
                 if (false) {
+                    // we need a check here to be sure that everything got flattened
+                    // _.cloneDeepWith is an easy way to inspect the entire depth of an object.
+                    // this customizer is used to confirm there are no unflattened instances of Fact or Rule
+                    const checkNoFactOrRule = (value, key, object, stack) => {
+                        // console.log("checkNoFactOrRule on key",key);
+                        if (Fact.isFact(value) || Rule.isRule(value)) {
+                            throw new Error(`Found unflattened Fact or Rule ${value._id}`);
+                        }
+                    };
+                    // first full test blew a gasket on some resource too large.
+                    // maybe that could happen if we didn't get out all the circ refs
+                    // this doesn't seem to happen, that's good
                     try {
                         _.cloneDeepWith(currentChunk, checkNoFactOrRule);
                     }
@@ -777,16 +780,24 @@ Dictionary.prototype.flattenToCollection = async function(collection) {
 
                 const bulkOp = collection.initializeUnorderedBulkOp();
                 for (const item of currentChunk) {
-                    // I think some Facts are too large because of very large _seen Sets.
-                    const _seenLength = item._seen ? Object.keys(item._seen).length : 0;
-                    if (_seenLength > 1000) {
-                        // have to chunk em up.
-                        console.log(`item ${item._id} has ${_seenLength} _seen`);
-                        const _seen = Object.keys(item._seen);
-                        item._seen = {};
-                        // we have to chunk the _seen array, and insert each chunk,
-                        // as an item with an _id thats `${item._id}_seen_${chunkIndex}`
-                        // then insert the chunk _id into the item._seen object.
+                    // Facts which are Causes can have very large _seen Sets.
+                    // I tried saving them separately in chunks (below),
+                    // but that seems to just run forever.
+                    // Alternatively, I'm thinking that once the graph is fully reasoned,
+                    // then it can be said that every Cause has seen every fact, so maybe
+                    // they don't need to be saved, but when reasoner is restored,
+                    // TODO figure out how best to restore _seen
+                    delete item._seen;
+                    if (false) {
+                        const _seenLength = item._seen ? Object.keys(item._seen).length : 0;
+                        if (_seenLength > 1000) {
+                            // have to chunk em up.
+                            console.log(`item ${item._id} has ${_seenLength} _seen`);
+                            const _seen = Object.keys(item._seen);
+                            item._seen = {};
+                            // we have to chunk the _seen array, and insert each chunk,
+                            // as an item with an _id thats `${item._id}_seen_${chunkIndex}`
+                            // then insert the chunk _id into the item._seen object.
 
                         // Chunk the _seen array into smaller pieces
                         const CHUNK_SIZE = 500; // Smaller chunks for better performance
@@ -819,10 +830,10 @@ Dictionary.prototype.flattenToCollection = async function(collection) {
                             chunkedSeen[chunkId] = true;
                         }
 
-                        // Replace the original _seen with the chunked version
-                        item._seen = chunkedSeen;
+                            // Replace the original _seen with the chunked version
+                            item._seen = chunkedSeen;
+                        }
                     }
-                    // or try to catch which thing is really too large
 
                     let error;
                     try {
@@ -835,11 +846,10 @@ Dictionary.prototype.flattenToCollection = async function(collection) {
                     if (error) {
                         try {
                             // if the insert fails, then this fails every time
-                            fs.writeFileSync("/tmp/toolarge", JSON.stringify(item,null,2));
+                            fs.writeFileSync("/tmp/error_item", JSON.stringify(item,null,2));
                         }
                         catch (e) {
                             console.error(`error stringifying ${item}`,e);
-                            console.error(`what is item?`,item);
                         }
                     }
                     if (error) {
@@ -898,6 +908,7 @@ Dictionary.prototype.flattenToCollection = async function(collection) {
         if (currentChunk.length > 0) {
             const bulkOp = collection.initializeUnorderedBulkOp();
             for (const item of currentChunk) {
+                delete item._seen;
                 bulkOp.insert(item);
             }
             await bulkOp.execute();

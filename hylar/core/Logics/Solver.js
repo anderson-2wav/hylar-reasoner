@@ -221,7 +221,11 @@ Solver = {
                 const possibleFacts = this.D.getIndex(currentCause.subject, currentCause.predicate, currentCause.object);
                 // filter out any facts already seen.
                 const newFacts = possibleFacts.filter((f) => {
-                    return currentCause._seen ? !currentCause._seen[f.asString] : true;
+                    // global _seen from a restored reasoner
+                    if (this.D._seen.has(f.asString)) {
+                        return false;
+                    }
+                    return currentCause._seen ? !currentCause._seen.has(f.asString) : true;
                 });
                 if (newFacts.length) {
                     _newFactCt = newFacts.length;
@@ -235,21 +239,26 @@ Solver = {
             else if (Solver._verbose) {
                 console.log(`cause ${ckey} up to date! evaluating ${facts.length} current facts.`);
             }
-            currentCause._seen = currentCause._seen ?? {};
+            currentCause._seen = currentCause._seen ?? new Set();
             currentCause._nextCauses = currentCause._nextCauses ?? [];
             let evalCt = 0;
             let skippedCt = 0;
             for (var j = 0; j < facts.length; j++) {
                 const fact = facts[j];
                 var fkey = fact.toString();
-                if (currentCause._seen[fkey]) {
+                // global _seen from a restored reasoner
+                if (this.D._seen.has(fkey)) {
+                    skippedCt++;
+                    continue;
+                }
+                if (currentCause._seen.has(fkey)) {
                     // console.log(`rule ${rule.name} cause ${ckey} skip OLD ${fkey}`);
                     skippedCt++;
                     continue;
                 }
                 // console.log(`rule ${rule.name} cause ${ckey} NEW ${fkey}`);
                 evalCt++;
-                currentCause._seen[fkey] = 1;
+                currentCause._seen.add(fkey);
 
                 // Get the mapping of the current cause ...
                 var mapping = currentCause.mapping,

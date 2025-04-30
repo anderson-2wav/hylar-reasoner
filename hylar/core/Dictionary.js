@@ -41,8 +41,10 @@ function Dictionary(dict, index) {
     // notes the facts previously seen and therefore do not need to be Solved again.
     // Those _seen collections can be quite large, so they are not persisted
     // in flattenToCollection.
-    // After loadFromCollection, I think that all Rules and Causes can be asserted
-    this._seenGlobally = new Set();
+    // After loadFromCollection, I think that all Rules and Causes can be said
+    // to have seen all Facts. Only new ones need to be added to the specific Fact|Rule._seen
+    this._seen = new Set();
+
 };
 
 Dictionary.clone = function (dict) {
@@ -545,6 +547,7 @@ Dictionary.prototype.flattenToMap = function() {
     const _dict = Dictionary.clone(this);
     delete _dict.dict;
     delete _dict.index;
+    delete _dict._seen;
     resultMap.set("dictionary", _dict);
     return resultMap;
 }
@@ -920,6 +923,7 @@ Dictionary.prototype.flattenToCollection = async function(collection) {
     const _dict = Dictionary.clone(this);
     delete _dict.dict;
     delete _dict.index;
+    delete _dict._seen;
     await collection.insertOne(_dict);
 
     return collection;
@@ -1271,7 +1275,6 @@ Dictionary.prototype.loadFromCollection = async function(collection, opts) {
         if (secondPassCount % (BATCH_SIZE * 10) === 0) {
             console.log(`Processed ${secondPassCount} objects looking for Facts and Rules in second pass`);
         }
-
     }
 
     console.log(`Second pass complete. Processed ${secondPassCount} objects.`);
@@ -1312,8 +1315,23 @@ Dictionary.prototype.loadFromCollection = async function(collection, opts) {
 
         factIteratorResult = factIterator.next();
     }
-
     console.log(`Third pass complete. Added ${thirdPassCount} Facts to dictionary.`);
+    console.log("Now populate _seen");
+    let _seenCt = 0;
+    for (const graph in this.dict) {
+        for (const ttl in this.dict[graph]) {
+            const facts = this.dict[graph][ttl];
+            for (const fact of facts) {
+                _seenCt++;
+                if (_seenCt % 1000 === 0) {
+                    console.log(`Added ${_seenCt} Facts to seen.`);
+                    await new Promise(resolve => setTimeout(resolve, 0));
+                }
+                this._seen.add(fact.asString);
+            }
+        }
+    }
+    console.log(`this._seen has ${this._seen.size} items`);
 
     return this;
 };

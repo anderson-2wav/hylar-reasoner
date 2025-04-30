@@ -51,14 +51,6 @@ Dictionary.clone = function (dict) {
     return _dict;
 };
 
-Dictionary.fromFacts = function(facts) {
-    const dict = new Dictionary();
-    for (let i=0; i < facts.length; i++) {
-        dict.put(facts[i],graph);
-    }
-    return dict;
-}
-
 /**
  * Checks if an object is an instance of Dictionary
  * @param {*} obj - The object to check
@@ -1116,11 +1108,14 @@ Dictionary.prototype.loadFromCollection = async function(collection, opts) {
 
     // First pass: populate objectMap with all objects converted to instances
     const objectMap = new Map();
+    const BATCH_SIZE = 1000;
+    let processedCount = 0;
+    let lastYieldTime = Date.now();
 
     // Use cursor to process documents in batches
     const cursor = collection.find({ _type: { $ne: "Dictionary" } });
-    let processedCount = 0;
-    const BATCH_SIZE = 1000;
+    console.log(`Begin processing ${await cursor.count()} documents from collection.`);
+    let batch = [];
 
     for await (const doc of cursor) {
         if (!doc) continue;
@@ -1152,21 +1147,31 @@ Dictionary.prototype.loadFromCollection = async function(collection, opts) {
         }
 
         processedCount++;
+        batch.push(doc);
+
+        // Only yield if we've processed a full batch or enough time has passed
+        const now = Date.now();
+        if (batch.length >= BATCH_SIZE || now - lastYieldTime > 100) {
+            await new Promise(resolve => setTimeout(resolve, 0)); // Yield to event loop
+            batch = [];
+            lastYieldTime = now;
+        }
 
         // Log progress for large collections
-        if (processedCount % BATCH_SIZE === 0) {
-            console.log(`Processed ${processedCount} documents in first pass`);
+        if (processedCount % (BATCH_SIZE * 10) === 0) {
+            console.log(`Processed ${processedCount} documents into objectMap in first pass`);
         }
     }
 
-    console.log(`First pass complete. Processed ${processedCount} documents.`);
+    console.log(`First pass complete. Processed ${processedCount} documents into objectMap.`);
     console.log(`objectMap has ${objectMap.size} entries`);
 
     // Second pass: replace all {_id, _type} references with actual instances
-    // Use a queue-based approach to avoid recursion and potential stack overflow
     const queue = [];
     const processedObjects = new Set();
     let secondPassCount = 0;
+    batch = [];
+    lastYieldTime = Date.now();
 
     // Add all instances to the queue for processing using iterator
     const iterator = objectMap.values();
@@ -1188,6 +1193,15 @@ Dictionary.prototype.loadFromCollection = async function(collection, opts) {
         // Mark as processed to avoid cycles
         processedObjects.add(obj);
         secondPassCount++;
+        batch.push(obj);
+
+        // Only yield if we've processed a full batch or enough time has passed
+        const now = Date.now();
+        if (batch.length >= BATCH_SIZE || now - lastYieldTime > 100) {
+            await new Promise(resolve => setTimeout(resolve, 0)); // Yield to event loop
+            batch = [];
+            lastYieldTime = now;
+        }
 
         // Process all properties of the object
         for (const key in obj) {
@@ -1253,17 +1267,19 @@ Dictionary.prototype.loadFromCollection = async function(collection, opts) {
                 }
             }
         }
-
         // Log progress for large collections
-        if (secondPassCount % BATCH_SIZE === 0) {
-            console.log(`Processed ${secondPassCount} objects in second pass`);
+        if (secondPassCount % (BATCH_SIZE * 10) === 0) {
+            console.log(`Processed ${secondPassCount} objects looking for Facts and Rules in second pass`);
         }
+
     }
 
     console.log(`Second pass complete. Processed ${secondPassCount} objects.`);
 
     // Third pass: add instances to the dictionary using this.put
     let thirdPassCount = 0;
+    batch = [];
+    lastYieldTime = Date.now();
 
     // Use iterator for the third pass as well
     const factIterator = objectMap.values();
@@ -1276,19 +1292,28 @@ Dictionary.prototype.loadFromCollection = async function(collection, opts) {
                 for (const graphUri of instance.graphs || ["#default"]) {
                     this.put(instance, graphUri);
                     thirdPassCount++;
+                    batch.push(instance);
+
+                    // Only yield if we've processed a full batch or enough time has passed
+                    const now = Date.now();
+                    if (batch.length >= BATCH_SIZE || now - lastYieldTime > 100) {
+                        await new Promise(resolve => setTimeout(resolve, 0)); // Yield to event loop
+                        batch = [];
+                        lastYieldTime = now;
+
+                    }
                 }
             }
-        }
-
-        // Log progress for large collections
-        if (thirdPassCount % BATCH_SIZE === 0) {
-            console.log(`Added ${thirdPassCount} facts to dictionary`);
+            // Log progress for large collections
+            if (thirdPassCount % (BATCH_SIZE * 10) === 0) {
+                console.log(`Added ${thirdPassCount} Facts to dictionary`);
+            }
         }
 
         factIteratorResult = factIterator.next();
     }
 
-    console.log(`Third pass complete. Added ${thirdPassCount} facts to dictionary.`);
+    console.log(`Third pass complete. Added ${thirdPassCount} Facts to dictionary.`);
 
     return this;
 };

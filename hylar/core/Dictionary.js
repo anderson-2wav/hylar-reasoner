@@ -36,6 +36,13 @@ function Dictionary(dict, index) {
             }
         }
     }
+
+    // Each Rule and Facts which are Causes have a _seen hash which
+    // notes the facts previously seen and therefore do not need to be Solved again.
+    // Those _seen collections can be quite large, so they are not persisted
+    // in flattenToCollection.
+    // After loadFromCollection, I think that all Rules and Causes can be asserted
+    this._seenGlobally = new Set();
 };
 
 Dictionary.clone = function (dict) {

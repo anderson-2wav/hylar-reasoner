@@ -827,7 +827,9 @@ class Hylar {
 
         for (let i = 0; i <  r.triples.length; i++) {
             let triple = r.triples[i];
-            let _fs = this.dict.get(triple);
+            // this was doing it wrong! this.dict.get(triple)
+            const ttl = ParsingInterface.tripleToTurtle(triple);
+            let _fs = this.dict.get(ttl);
             if(!_fs) {
                 let f = ParsingInterface.tripleToFact(triple, true, (this.rMethod == Reasoner.process.it.incrementally))
                 this.dict.put(f, graph)

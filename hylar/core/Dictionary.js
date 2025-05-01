@@ -94,6 +94,7 @@ Dictionary.prototype.clone = function() {
             clone.put(facts[i],graph);
         }
     }
+    clone._seen = this._seen;
     return clone;
 };
 

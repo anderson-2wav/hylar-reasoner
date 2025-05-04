@@ -1090,7 +1090,8 @@ Dictionary.prototype.loadMap = function(map, opts) {
 Dictionary.prototype.loadFromCollection = async function(collection, opts) {
     opts = opts || {};
     opts.reload = opts.reload !== false;
-
+    opts.yieldMs = typeof opts.yieldMs === "number" ? opts.yieldMs : 50;
+    console.log("loadFromCollection with yieldMs",opts.yieldMs);
     if (opts.reload) {
         // Find the Dictionary document
         const details = await collection.findOne({ _type: "Dictionary" });
@@ -1157,7 +1158,7 @@ Dictionary.prototype.loadFromCollection = async function(collection, opts) {
         // Only yield if we've processed a full batch or enough time has passed
         const now = Date.now();
         if (batch.length >= BATCH_SIZE || now - lastYieldTime > 100) {
-            await new Promise(resolve => setTimeout(resolve, 0)); // Yield to event loop
+            await new Promise(resolve => setTimeout(resolve, opts.yieldMs)); // Yield to event loop
             batch = [];
             lastYieldTime = now;
         }
@@ -1203,7 +1204,7 @@ Dictionary.prototype.loadFromCollection = async function(collection, opts) {
         // Only yield if we've processed a full batch or enough time has passed
         const now = Date.now();
         if (batch.length >= BATCH_SIZE || now - lastYieldTime > 100) {
-            await new Promise(resolve => setTimeout(resolve, 0)); // Yield to event loop
+            await new Promise(resolve => setTimeout(resolve, opts.yieldMs)); // Yield to event loop
             batch = [];
             lastYieldTime = now;
         }
@@ -1301,7 +1302,7 @@ Dictionary.prototype.loadFromCollection = async function(collection, opts) {
                     // Only yield if we've processed a full batch or enough time has passed
                     const now = Date.now();
                     if (batch.length >= BATCH_SIZE || now - lastYieldTime > 100) {
-                        await new Promise(resolve => setTimeout(resolve, 0)); // Yield to event loop
+                        await new Promise(resolve => setTimeout(resolve, opts.yieldMs)); // Yield to event loop
                         batch = [];
                         lastYieldTime = now;
 
@@ -1326,7 +1327,7 @@ Dictionary.prototype.loadFromCollection = async function(collection, opts) {
                 _seenCt++;
                 if (_seenCt % 1000 === 0) {
                     console.log(`Added ${_seenCt} Facts to seen.`);
-                    await new Promise(resolve => setTimeout(resolve, 0));
+                    await new Promise(resolve => setTimeout(resolve, opts.yieldMs));
                 }
                 this._seen.add(fact.asString);
             }

@@ -19,6 +19,11 @@ let appDir = path.dirname(require.main.filename),
 
 let persistent = true
 let entailment = 'owl2rl'
+let dbDir;
+let restore = false;
+let reasoning = true;
+
+console.log(process.argv);
 
 process.argv.forEach(function(value, index) {
     if((value=='--no-persist')) {
@@ -32,9 +37,31 @@ process.argv.forEach(function(value, index) {
     }
 });
 
-const Hylar = new h({
-    persistent, entailment
+process.argv.forEach(function(value, index) {
+    if(value=='--dbDir') {
+        dbDir = process.argv[index + 1]
+    }
 });
+
+process.argv.forEach(function(value, index) {
+    if(value=='--restore') {
+        restore = true;
+    }
+});
+
+process.argv.forEach(function(value, index) {
+    if(value=='--reasoning') {
+        reasoning = !process.argv[index + 1].match(/false|0/i);
+    }
+});
+
+const Hylar = new h({
+    persistent, entailment, dbDir, reasoning
+});
+
+if (restore) {
+    Hylar.restore();
+}
 
 process.argv.forEach(function(value, index) {
     if ((value == '-od') || (value == '--ontology-directory') || (value == '-gd') || (value == '--graph-directory')) {

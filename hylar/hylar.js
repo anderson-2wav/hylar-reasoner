@@ -62,7 +62,7 @@ class Hylar {
         this.queryHistory = []
         this.log = []
         this.parsingInterface = ParsingInterface;
-        Hylar.currentInstance = this
+        Hylar.currentInstance = this;
     }
 
     static log(msg) {
@@ -621,7 +621,7 @@ class Hylar {
             try {
                 let content = fs.readFileSync(`${dbDir}/${file}`).toString()
                 for (let rule of dbconf.customRules) {
-                    this._customRules.push(Logics.parseRule(rule.content, rule.name))
+                    this.addRule(Logics.parseRule(rule.content, rule.name))
                 }
                 await this.load(content, 'text/n3', true, dbconf.mappingsGraphDbFiles[file])
             } catch (err) {

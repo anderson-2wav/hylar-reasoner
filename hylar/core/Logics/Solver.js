@@ -222,7 +222,8 @@ Solver = {
                 // filter out any facts already seen.
                 const newFacts = possibleFacts.filter((f) => {
                     // global _seen from a restored reasoner
-                    if (this.D._seen.has(f.asString)) {
+                    // I may be entirely wrong on this!
+                    if (false && this.D._seen.has(f.asString)) {
                         return false;
                     }
                     return currentCause._seen ? !currentCause._seen.has(f.asString) : true;
@@ -247,7 +248,8 @@ Solver = {
                 const fact = facts[j];
                 var fkey = fact.toString();
                 // global _seen from a restored reasoner
-                if (this.D._seen.has(fkey)) {
+                // I may be entirely wrong on this!
+                if (false && this.D._seen.has(fkey)) {
                     skippedCt++;
                     continue;
                 }

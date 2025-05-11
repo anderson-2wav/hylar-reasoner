@@ -43,6 +43,7 @@ function Dictionary(dict, index) {
     // in flattenToCollection.
     // After loadFromCollection, I think that all Rules and Causes can be said
     // to have seen all Facts. Only new ones need to be added to the specific Fact|Rule._seen
+    // update: I think this may hold true only during initial classify...
     this._seen = new Set();
 
 };

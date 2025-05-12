@@ -546,6 +546,7 @@ class Hylar {
     persist() {
         if (!this.allowPersist && fs) return
         // TODO temporarily useful to know when hylar persists.
+        debugger;
         const stack = new Error().stack;
         console.log("====== HYLAR persist. This is not really an error, just a stack trace",stack);
         var dbDir = this.dbDir || './db';
@@ -995,7 +996,10 @@ class Hylar {
         })) {
             this._customRules.push(rule)
         }
-        await this.recomputeClosure()
+        // addRule should not recompute closure, because it gets called
+        // multiple times by restore(), and also recomputeClosure calls persist,
+        // which can wipe out our db before we've even loaded it.
+        // await this.recomputeClosure()
     }
 
     async parseAndAddRule(rawRule, name) {

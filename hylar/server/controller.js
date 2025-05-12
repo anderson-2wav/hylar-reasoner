@@ -60,7 +60,17 @@ const Hylar = new h({
 });
 
 if (restore) {
-    Hylar.restore();
+    new Promise(async (resolve, reject) => {
+        console.log("Hylar.restore()");
+        const wasPersist = !!Hylar.allowPersist;
+        Hylar.allowPersist = true;
+        debugger;
+        await Hylar.restore();
+        Hylar.allowPersist = wasPersist;
+        if (reasoning) {
+            await Hylar.classify();
+        }
+    });
 }
 
 process.argv.forEach(function(value, index) {

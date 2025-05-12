@@ -68,9 +68,9 @@ if (restore) {
     Hylar.allowPersist = true;
     await Hylar.restore();
     Hylar.allowPersist = wasPersist;
-        // if (reasoning) {
-        //     await Hylar.classify();
-        // }
+    // if (reasoning) {
+    //   await Hylar.classify();
+    // }
   });
 }
 
@@ -263,6 +263,7 @@ module.exports = {
 
         // Actual sparql query
     const query = req.body.query || req.body.update || req.query.query;
+    console.log("query", query);
         // Drop it if the query is null
     if (!query) ContentNegotiator.answerSparqlWithContentNegotiation(req, res);
     const parsedQuery = ParsingInterface.parseSPARQL(query);

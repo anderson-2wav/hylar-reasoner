@@ -8,7 +8,8 @@ const fs = require('fs'),
 
 const h = require('../hylar');
 const Logics = require('../core/Logics/Logics');
-const ContentNegotiator = require('./content_negotiator')
+const ContentNegotiator = require('./content_negotiator');
+const ParsingInterface = require('../core/ParsingInterface');
 
 let appDir = path.dirname(require.main.filename),
     ontoDir = appDir + '/ontologies',
@@ -200,7 +201,7 @@ module.exports = {
 
     importHylarContents: async function(req, res) {
         let importedData;
-        fs.readFile(ontoDir + "/export.json", asyncfunction(err, data) {
+        fs.readFile(ontoDir + "/export.json", async function(err, data) {
             if(err) {
                 res.status(500).send(err.toString());
             } else {
@@ -253,9 +254,9 @@ module.exports = {
             processedTime = -1;
 
         // Actual sparql query
-		let query = req.body.query || req.body.update || req.query.query
+        let query = req.body.query || req.body.update || req.query.query
         // Drop it if the query is null
-		if (!query) ContentNegotiator.answerSparqlWithContentNegotiation(req, res)
+        if (!query) ContentNegotiator.answerSparqlWithContentNegotiation(req, res)
 
         // Process query if it is set
         try {
@@ -291,7 +292,7 @@ module.exports = {
 
             Hylar.addToQueryHistory(req.body.query, true);
 
-            if (returnFacts) {
+            if (asFacts) {
                 // Clear the callback
                 Hylar.classifyCallback = null;
                 res.status(200).json({
@@ -299,15 +300,29 @@ module.exports = {
                     meta: hylar_meta
                 });
             } else if (asString) {
-                if (results.triples && results.triples.length) {
-                    asString = "";
-                    for (let i = 0; i < results.triples.length; i++) {
-                        asString += results.triples[i].toString() + " ";
+                // Parse the SPARQL query to get the WHERE clause structure
+                const parsedQuery = ParsingInterface.parseSPARQL(query);
+                
+                // Convert binding maps to triples using the WHERE clause structure
+                let ttlOutput = "";
+                if (parsedQuery.queryType === "SELECT") {
+                    const bgp = parsedQuery.where.find(w => w.type === "bgp");
+                    if (bgp) {
+                        results.forEach(binding => {
+                            bgp.triples.forEach(triple => {
+                                const s = binding[triple.subject.substring(1)].value; // Remove ? prefix
+                                const p = triple.predicate;
+                                const o = binding[triple.object.substring(1)].value; // Remove ? prefix
+                                if (s && p && o) {
+                                    ttlOutput += `<${s}> <${p}> <${o}> .\n`;
+                                }
+                            });
+                        });
                     }
-                    res.send(asString);
                 }
+                res.header('Content-Type', 'text/turtle');
+                res.status(200).send(ttlOutput);
             } else {
-                debugger;
                 ContentNegotiator.answerSparqlWithContentNegotiation(req, res, { results, totalTime })
             }
         } catch(error) {

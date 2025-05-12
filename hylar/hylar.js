@@ -341,6 +341,7 @@ class Hylar {
         try {
             // Parse original query
             sparql = ParsingInterface.parseSPARQL(query)
+            console.log("sparql", sparql);
         } catch (e) {
             Hylar.displayError('Problem with SPARQL query: ' + query);
             throw e;

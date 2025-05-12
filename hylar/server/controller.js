@@ -6,14 +6,14 @@ const fs = require("fs"),
   path = require("path"),
   mime = require("mime-types");
 
-const h = require("../hylar");
+const H = require("../hylar");
 const Logics = require("../core/Logics/Logics");
 const ContentNegotiator = require("./content_negotiator");
 const ParsingInterface = require("../core/ParsingInterface");
 
-let appDir = path.dirname(require.main.filename),
-  ontoDir = appDir + "/ontologies",
-  htmlDir = appDir + "/views",
+const appDir = path.dirname(require.main.filename),
+  htmlDir = appDir + "/views";
+let ontoDir = appDir + "/ontologies",
   port = 3000,
   parsedPort,
   contextPath = "";
@@ -27,46 +27,45 @@ let reasoning = true;
 console.log(process.argv);
 
 process.argv.forEach(function(value, index) {
-  if ((value=="--no-persist")) {
+  if ((value === "--no-persist")) {
     persistent = false;
   }
 });
 
 process.argv.forEach(function(value, index) {
-  if ((value=="--entailment") || (value == "-e")) {
+  if ((value === "--entailment") || (value === "-e")) {
     entailment = process.argv[index + 1];
   }
 });
 
 process.argv.forEach(function(value, index) {
-  if (value=="--dbDir") {
+  if (value === "--dbDir") {
     dbDir = process.argv[index + 1];
   }
 });
 
 process.argv.forEach(function(value, index) {
-  if (value=="--restore") {
+  if (value === "--restore") {
     restore = true;
   }
 });
 
 process.argv.forEach(function(value, index) {
-  if (value=="--reasoning") {
+  if (value === "--reasoning") {
     reasoning = !process.argv[index + 1].match(/false|0/i);
   }
 });
 
-const Hylar = new h({
+const Hylar = new H({
   persistent, entailment, dbDir, reasoning
 });
 
 if (restore) {
-  // eslint-disable-next-line no-new
+  // eslint-disable-next-line no-new,no-async-promise-executor
   new Promise(async (resolve, reject) => {
     console.log("Hylar.restore()");
     const wasPersist = !!Hylar.allowPersist;
     Hylar.allowPersist = true;
-    debugger;
     await Hylar.restore();
     Hylar.allowPersist = wasPersist;
         // if (reasoning) {
@@ -76,13 +75,13 @@ if (restore) {
 }
 
 process.argv.forEach(function(value, index) {
-  if ((value == "-od") || (value == "--ontology-directory") || (value == "-gd") || (value == "--graph-directory")) {
+  if ((value === "-od") || (value === "--ontology-directory") || (value === "-gd") || (value === "--graph-directory")) {
     ontoDir = path.resolve(process.argv[index + 1]);
   }
 });
 
 process.argv.forEach(function(value, index) {
-  if ((value=="-p") || (value=="--port")) {
+  if ((value === "-p") || (value === "--port")) {
     parsedPort = parseInt(process.argv[index+1]);
     if (parsedPort !== NaN && parsedPort > 0) {
       port = parsedPort;
@@ -91,7 +90,7 @@ process.argv.forEach(function(value, index) {
 });
 
 process.argv.forEach(function(value, index) {
-  if ((value=="-rm") || (value=="--reasoning-method")) {
+  if ((value === "-rm") || (value === "--reasoning-method")) {
     if (["tagBased", "tag-based"].includes(process.argv[index + 1])) {
       Hylar.setTagBased();
     }
@@ -102,14 +101,14 @@ process.argv.forEach(function(value, index) {
 });
 
 process.argv.forEach(function(value, index) {
-  if ((value=="-cp") || (value=="--context-path")) {
+  if ((value === "-cp") || (value === "--context-path")) {
     contextPath = "/" + process.argv[index + 1];
     console.log(contextPath);
   }
 });
 
 process.argv.forEach(function(value, index) {
-  if ((value=="-x") || (value=="--reasoning-off")) {
+  if ((value === "-x") || (value === "--reasoning-off")) {
     Hylar.setReasoningOff();
   }
 });
@@ -174,12 +173,12 @@ module.exports = {
     try {
       await Hylar.load(rawOntology, mimeType, req.query.keepoldvalues, graph, req.body.reasoningMethod);
       req.processingDelay = new Date().getTime() - initialTime;
-      h.success(`Classification of ${req.params.filename} finished in ${req.processingDelay} ms.`);
+      H.success(`Classification of ${req.params.filename} finished in ${req.processingDelay} ms.`);
       next();
 
     }
     catch (error) {
-      h.displayError(error);
+      H.displayError(error);
       res.status(500).send(error.stack);
     }
   },
@@ -217,8 +216,8 @@ module.exports = {
           const value = await Hylar.import(JSON.parse(importedData).dictionary);
           res.send({status: value});
         }
-        catch (err) {
-          res.status(500).json({err: err.toString});
+        catch (_err) {
+          res.status(500).json({err: _err.toString});
         }
       }
     });
@@ -230,7 +229,7 @@ module.exports = {
      * @param res
      */
   sendOntology: function(req, res) {
-    if (req.headers.accept == "application/json") {
+    if (req.headers.accept === "application/json") {
       res.header("Content-Type", "application/json");
       res.status(200).json({
         data: {
@@ -249,17 +248,18 @@ module.exports = {
 
   removeOntology: function(req, res, next) {
     fs.unlinkSync(ontoDir + "/" + req.params.filename);
-    h.notify(`File ${req.params.filename} removed`);
+    H.notify(`File ${req.params.filename} removed`);
     next();
 
   },
 
   processSPARQL: async function(req, res) {
-    let results = {}, asTTL = req.body.asTTL || req.query.asTTL;
-    let initialTime = req.query.time,
+    let results = {};
+    const asTTL = req.body.asTTL || req.query.asTTL;
+    const initialTime = req.query.time,
       receivedReqTime = new Date().getTime(),
-      requestDelay = receivedReqTime - initialTime,
-      processedTime = -1;
+      requestDelay = receivedReqTime - initialTime;
+    let processedTime = -1;
 
         // Actual sparql query
     const query = req.body.query || req.body.update || req.query.query;
@@ -298,7 +298,7 @@ module.exports = {
       };
       const totalTime = processedTime - receivedReqTime;
 
-      h.success("Evaluation finished in " + (totalTime) + "ms.");
+      H.success("Evaluation finished in " + (totalTime) + "ms.");
 
       Hylar.addToQueryHistory(req.body.query, true);
 
@@ -416,7 +416,7 @@ module.exports = {
     res.status(200).json({
       fileName: req.file.originalname
     });
-    h.notify(`File ${req.file.originalname} loaded and ready to process`);
+    H.notify(`File ${req.file.originalname} loaded and ready to process`);
   },
 
   renderFacts: function(req, res) {
@@ -425,9 +425,9 @@ module.exports = {
     const graph = decodeURIComponent(req.params.graph);
     const consistent = Hylar.checkConsistency().consistent;
 
-    const prepareFactForPresentation = (fact, graph) => {
+    const prepareFactForPresentation = (fact, _graph) => {
       return {
-        graph,
+        _graph,
         asString: fact.asString,
         rule: fact.rule,
         subject: Hylar.prefixes.replaceUriWithPrefix(fact.subject),
@@ -443,11 +443,11 @@ module.exports = {
 
     const kb = [];
 
-    for (const graph in content) {
-      for (const dictKey in content[graph]) {
-        const values = dict.get(dictKey, graph);
+    for (const __graph in content) {
+      for (const dictKey in content[__graph]) {
+        const values = dict.get(dictKey, __graph);
         for (let i = 0; i < values.length; i++) {
-          kb.push(prepareFactForPresentation(values[i], graph));
+          kb.push(prepareFactForPresentation(values[i], __graph));
         }
       }
     }
@@ -463,18 +463,19 @@ module.exports = {
       consistent,
       entailment: Hylar.entailment.toUpperCase(),
       axioms,
-      isTagBased: Hylar.reasoningMethod == "tagBased"
+      isTagBased: Hylar.reasoningMethod === "tagBased"
     });
   },
 
   simpleSparql: async function(req, res, next) {
         //noinspection JSValidateTypes
-    let start = new Date().getTime(), processingDelay;
+    const start = new Date().getTime();
+    let processingDelay;
     if (req.body.query !== undefined) {
       try {
         const result = await Hylar.query(req.body.query);
         processingDelay = new Date().getTime() - start;
-        h.success("Evaluation finished in " + processingDelay + "ms.");
+        H.success("Evaluation finished in " + processingDelay + "ms.");
         req.sparqlResults = result;
         req.sparqlQuery = req.body.query;
         Hylar.addToQueryHistory(req.sparqlQuery, true);
@@ -511,8 +512,8 @@ module.exports = {
   },
 
   addRules: async function(req, res, next) {
-    let rules = req.body.rules,
-      parsedRules;
+    const rules = req.body.rules;
+    let parsedRules;
     if (req.body.rule !== undefined) {
       try {
         await Hylar.addRule(Logics.parseRule(req.body.rule, req.body.rulename));

@@ -61,6 +61,7 @@ const Hylar = new h({
 });
 
 if (restore) {
+  // eslint-disable-next-line no-new
   new Promise(async (resolve, reject) => {
     console.log("Hylar.restore()");
     const wasPersist = !!Hylar.allowPersist;
@@ -268,108 +269,108 @@ module.exports = {
         // Process query if it is set
     try {
             // Check if facts are requested
-            const asFacts = req.body.asFacts || req.query.asFacts;
-            let facts = [];
-            if (asFacts) {
-                if (parsedQuery.type !== "query") {
+      const asFacts = req.body.asFacts || req.query.asFacts;
+      let facts = [];
+      if (asFacts) {
+        if (parsedQuery.type !== "query") {
                     // For non-query type, use classifyCallback
-                    Hylar.classifyCallback = (factArray) => {
-                        facts = factArray.map(fact => ({
-                            subject: Hylar.prefixes.replaceUriWithPrefix(fact.subject),
-                            predicate: Hylar.prefixes.replaceUriWithPrefix(fact.predicate),
-                            object: Hylar.prefixes.replaceUriWithPrefix(fact.object),
-                            isValid: fact.isValid(),
-                            explicit: fact.explicit,
-                            causedBy: fact.causedBy,
-                            asString: fact.asString
-                        }));
-                    };
-                }
-            }
+          Hylar.classifyCallback = (factArray) => {
+            facts = factArray.map(fact => ({
+              subject: Hylar.prefixes.replaceUriWithPrefix(fact.subject),
+              predicate: Hylar.prefixes.replaceUriWithPrefix(fact.predicate),
+              object: Hylar.prefixes.replaceUriWithPrefix(fact.object),
+              isValid: fact.isValid(),
+              explicit: fact.explicit,
+              causedBy: fact.causedBy,
+              asString: fact.asString
+            }));
+          };
+        }
+      }
 
-            results = await Hylar.query(query, req.body.reasoningMethod);
-            processedTime = new Date().getTime();
+      results = await Hylar.query(query, req.body.reasoningMethod);
+      processedTime = new Date().getTime();
 
-            const hylar_meta = {
-                processingDelay: processedTime - receivedReqTime,
-                requestDelay: requestDelay,
-                serverTime: new Date().getTime()
-            };
-            const totalTime = processedTime - receivedReqTime;
+      const hylar_meta = {
+        processingDelay: processedTime - receivedReqTime,
+        requestDelay: requestDelay,
+        serverTime: new Date().getTime()
+      };
+      const totalTime = processedTime - receivedReqTime;
 
-            h.success("Evaluation finished in " + (totalTime) + "ms.");
+      h.success("Evaluation finished in " + (totalTime) + "ms.");
 
-            Hylar.addToQueryHistory(req.body.query, true);
+      Hylar.addToQueryHistory(req.body.query, true);
 
-            if (asFacts) {
+      if (asFacts) {
                 // Clear the callback if it was set
-                Hylar.classifyCallback = null;
+        Hylar.classifyCallback = null;
 
                 // For query type, look up facts in dictionary using bindings
-                if (parsedQuery.type === "query") {
-                    const bgp = parsedQuery.where.find(w => w.type === "bgp");
-                    if (bgp) {
-                        results.forEach(binding => {
-                            bgp.triples.forEach(triple => {
-                                const s = binding[triple.subject.substring(1)].value;
-                                const p = triple.predicate;
-                                const o = binding[triple.object.substring(1)].value;
-                                if (s && p && o) {
+        if (parsedQuery.type === "query") {
+          const bgp = parsedQuery.where.find(w => w.type === "bgp");
+          if (bgp) {
+            results.forEach((binding) => {
+              bgp.triples.forEach((triple) => {
+                const s = binding[triple.subject.substring(1)].value;
+                const p = triple.predicate;
+                const o = binding[triple.object.substring(1)].value;
+                if (s && p && o) {
                                     // Look up fact in dictionary
-                                    const match = Hylar.dict.getIndex(s, p, o);
-                                    if (match.length) {
-                                        const fact = match[0];
-                                        facts.push({
-                                            subject: fact.subject,
-                                            predicate: fact.predicate,
-                                            object: fact.object,
-                                            isValid: fact.isValid,
-                                            explicit: fact.explicit,
-                                            causedBy: fact.causedBy,
-                                            asString: fact.asString
-                                        });
-                                    }
-                                }
-                            });
-                        });
-                    }
+                  const match = Hylar.dict.getIndex(s, p, o);
+                  if (match.length) {
+                    const fact = match[0];
+                    facts.push({
+                      subject: fact.subject,
+                      predicate: fact.predicate,
+                      object: fact.object,
+                      isValid: fact.isValid,
+                      explicit: fact.explicit,
+                      causedBy: fact.causedBy,
+                      asString: fact.asString
+                    });
+                  }
                 }
+              });
+            });
+          }
+        }
 
-                res.status(200).json({
-                    facts: facts,
-                    meta: hylar_meta
-                });
-            }
-            else if (asTTL) {
+        res.status(200).json({
+          facts: facts,
+          meta: hylar_meta
+        });
+      }
+      else if (asTTL) {
                 // Convert binding maps to triples using the WHERE clause structure
-                let ttlOutput = "";
-                if (parsedQuery.queryType === "SELECT") {
-                    const bgp = parsedQuery.where.find(w => w.type === "bgp");
-                    if (bgp) {
-                        results.forEach((binding) => {
-                            bgp.triples.forEach((triple) => {
-                                const s = binding[triple.subject.substring(1)].value; // Remove ? prefix
-                                const p = triple.predicate;
-                                const o = binding[triple.object.substring(1)].value; // Remove ? prefix
-                                if (s && p && o) {
-                                    ttlOutput += `<${s}> <${p}> <${o}> .\n`;
-                                }
-                            });
-                        });
-                    }
+        let ttlOutput = "";
+        if (parsedQuery.queryType === "SELECT") {
+          const bgp = parsedQuery.where.find(w => w.type === "bgp");
+          if (bgp) {
+            results.forEach((binding) => {
+              bgp.triples.forEach((triple) => {
+                const s = binding[triple.subject.substring(1)].value; // Remove ? prefix
+                const p = triple.predicate;
+                const o = binding[triple.object.substring(1)].value; // Remove ? prefix
+                if (s && p && o) {
+                  ttlOutput += `<${s}> <${p}> <${o}> .\n`;
                 }
-                res.header("Content-Type", "text/turtle");
-                res.status(200).send(ttlOutput);
-            }
-            else {
-                ContentNegotiator.answerSparqlWithContentNegotiation(req, res, { results, totalTime });
-            }
+              });
+            });
+          }
         }
-        catch (error) {
-            Hylar.addToQueryHistory(req.body.query, false);
-            res.status(500).send(error.message);
-        }
-    },
+        res.header("Content-Type", "text/turtle");
+        res.status(200).send(ttlOutput);
+      }
+      else {
+        ContentNegotiator.answerSparqlWithContentNegotiation(req, res, { results, totalTime });
+      }
+    }
+    catch (error) {
+      Hylar.addToQueryHistory(req.body.query, false);
+      res.status(500).send(error.message);
+    }
+  },
 
   list: function(req, res) {
     res.send(fs.readdirSync(ontoDir));

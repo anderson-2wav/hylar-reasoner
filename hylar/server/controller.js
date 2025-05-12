@@ -67,9 +67,9 @@ if (restore) {
         debugger;
         await Hylar.restore();
         Hylar.allowPersist = wasPersist;
-        if (reasoning) {
-            await Hylar.classify();
-        }
+        // if (reasoning) {
+        //     await Hylar.classify();
+        // }
     });
 }
 
@@ -246,7 +246,7 @@ module.exports = {
     },
 
     processSPARQL: async function(req, res) {
-        let results = {}, asString = req.body.asString
+        let results = {}, asString = req.body.asString || req.query.asString;
         let initialTime = req.query.time,
             receivedReqTime = new Date().getTime(),
             requestDelay =  receivedReqTime - initialTime,
@@ -259,6 +259,24 @@ module.exports = {
 
         // Process query if it is set
         try {
+            // Check if facts are requested
+            const returnFacts = req.body.facts === true || req.body.facts === '1' || req.query.facts === '1';
+            let facts = [];
+
+            if (returnFacts) {
+                Hylar.classifyCallback = (factArray) => {
+                    facts = factArray.map(fact => ({
+                        subject: Hylar.prefixes.replaceUriWithPrefix(fact.subject),
+                        predicate: Hylar.prefixes.replaceUriWithPrefix(fact.predicate),
+                        object: Hylar.prefixes.replaceUriWithPrefix(fact.object),
+                        isValid: fact.isValid(),
+                        explicit: fact.explicit,
+                        causedBy: fact.causedBy,
+                        asString: fact.asString
+                    }));
+                };
+            }
+
             results = await Hylar.query(query, req.body.reasoningMethod)
             processedTime = new Date().getTime();
 
@@ -268,13 +286,19 @@ module.exports = {
                 serverTime: new Date().getTime()
             }
             let totalTime = processedTime - receivedReqTime;
-            let params = { results, totalTime };
 
             h.success("Evaluation finished in " + (totalTime) + "ms.");
 
             Hylar.addToQueryHistory(req.body.query, true);
 
-            if (asString) {
+            if (returnFacts) {
+                // Clear the callback
+                Hylar.classifyCallback = null;
+                res.status(200).json({
+                    facts: facts,
+                    meta: hylar_meta
+                });
+            } else if (asString) {
                 if (results.triples && results.triples.length) {
                     asString = "";
                     for (let i = 0; i < results.triples.length; i++) {
@@ -283,7 +307,8 @@ module.exports = {
                     res.send(asString);
                 }
             } else {
-                ContentNegotiator.answerSparqlWithContentNegotiation(req, res, params)
+                debugger;
+                ContentNegotiator.answerSparqlWithContentNegotiation(req, res, { results, totalTime })
             }
         } catch(error) {
             Hylar.addToQueryHistory(req.body.query, false);

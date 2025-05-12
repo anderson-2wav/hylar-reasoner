@@ -200,14 +200,14 @@ module.exports = {
 
     importHylarContents: async function(req, res) {
         let importedData;
-        fs.readFile(ontoDir + "/export.json", function(err, data) {
+        fs.readFile(ontoDir + "/export.json", asyncfunction(err, data) {
             if(err) {
                 res.status(500).send(err.toString());
             } else {
                 importedData = data.toString();
                 try {
-                    let value = await
-                    Hylar.import(JSON.parse(importedData).dictionary)
+                    // Hylar.import doesn't exist!
+                    let value = await Hylar.import(JSON.parse(importedData).dictionary)
                     res.send({status: value});
                 } catch(err) {
                     res.status(500).json({err: err.toString});
@@ -260,10 +260,10 @@ module.exports = {
         // Process query if it is set
         try {
             // Check if facts are requested
-            const returnFacts = req.body.facts === true || req.body.facts === '1' || req.query.facts === '1';
+            const asFacts = req.body.asFacts || req.query.asFacts;
             let facts = [];
 
-            if (returnFacts) {
+            if (asFacts) {
                 Hylar.classifyCallback = (factArray) => {
                     facts = factArray.map(fact => ({
                         subject: Hylar.prefixes.replaceUriWithPrefix(fact.subject),

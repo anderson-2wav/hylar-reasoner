@@ -12,6 +12,10 @@ var Logics = require('./Logics/Logics'),
 
 var q = require('q');
 var _ = require('lodash');
+
+// suspicious grossly inefficient deletion reasoning
+const ORIGINAL_DELETE_REASONING = true;
+
 /**
  * Reasoning engine containing incremental algorithms
  * and heuristics for KB view maintaining.
@@ -105,17 +109,36 @@ ReasoningEngine = {
                 FiDel = Utils.uniques(FiDel, FiDelNew);
                 Rdel = Logics.restrictRuleSet(R, Utils.uniques(FeDel, FiDel));
                 Solver._phase = "deletion"; // temporary hack!
-                Solver.evaluateRuleSet(Rdel, Utils.uniques(Utils.uniques(Fi, Fe), FeDel), KB, D)
-                    .then(function(values) {
-                        FiDelNew = values.cons;
-                        if (Utils.uniques(FiDel, FiDelNew).length > FiDel.length) {
-                            overDeletionEvaluationLoop();
-                        } else {
-                            Fe = Logics.minus(Fe, FeDel);
-                            Fi = Logics.minus(Fi, FiDel);
-                            rederivationEvaluationLoop();
-                        }
-                    });
+                if (ORIGINAL_DELETE_REASONING) {
+                    // The original DeletionEvaluationLoop
+                    // I think my optimizations may have broken it.
+                    // If FeDel is a set of explicit Facts that already exists
+                    // in KB, then Utils.uniques(Utils.uniques(Fi, Fe), FeDel)
+                    // is just everything, right? If FeDel is Facts that are not
+                    // in the KB, then this would add even more inference.
+                    // the final Fi = Logics.minus(Fi, FiDel); removes many
+                    // inferences completely unrelated to the original FeDel.
+                    Solver.evaluateRuleSet(Rdel, Utils.uniques(Utils.uniques(Fi, Fe), FeDel), KB, D)
+                      .then(function(values) {
+                          FiDelNew = values.cons;
+                          if (Utils.uniques(FiDel, FiDelNew).length > FiDel.length) {
+                              overDeletionEvaluationLoop();
+                          } else {
+                              Fe = Logics.minus(Fe, FeDel);
+                              // it seems like this would remove many inferences
+                              // unrelated to FeDel. It appears that way in debugging.
+                              Fi = Logics.minus(Fi, FiDel);
+                              rederivationEvaluationLoop();
+                          }
+                      });
+                }
+                else {
+                    // Sadly, until I can figure out a correct and efficient
+                    // way to remove inferences caused by FeDel, I'm just
+                    // going to leave them.
+                    Fe = Logics.minus(Fe, FeDel);
+                }
+
             },
 
             rederivationEvaluationLoop = function() {
@@ -142,6 +165,11 @@ ReasoningEngine = {
                 if (insertionLoopCt === 1) {
                     // FiAdd is probably empty.
                     insertionSet = Utils.uniques(FiAdd, FeAdd);
+                    // need to be added to D _once_
+                    for (let i=0; i < insertionSet.length; i++) {
+                        D.put(insertionSet[i]);
+                    }
+
                 }
 
                 Solver._verbose = false;
@@ -180,23 +208,12 @@ ReasoningEngine = {
 
                         if (!Utils.containsSubset(FiAdd, FiAddNew)) {
                             // remember the new I in the total set, without duplicates
+                            const FiActuallyNew = _.differenceBy(FiAddNew, FiAdd,"asString");
                             FiAdd = Utils.uniques(FiAdd, FiAddNew);
-                            if (insertionLoopCt === 1) {
-                                // explicit facts that were added
-                                // need to be added to D _once_
-                                for (let i=0; i < FeAdd.length; i++) {
-                                    D.put(FeAdd[i]);
-                                }
-                                // // need to be added to the KB _once_
-                                // KB.push(...FeAdd);
+                            // add new statements to the known D for next iteration
+                            for (let i=0; i < FiActuallyNew.length; i++) {
+                                D.put(FiActuallyNew[i]);
                             }
-                            // add new statements to the known D,
-                            // for next iteration
-                            // need to be added to D _once_
-                            for (let i=0; i < FiAddNew.length; i++) {
-                                D.put(FiAddNew[i]);
-                            }
-                            // KB.push(...FiAddNew); // concat may be faster, but use more memory. would be interesting test.
                             // KB is needed for _.differenceBy, so update it now
                             KB = D.values();
                             console.log(`insertionEvaluationLoop #${insertionLoopCt} inferred ${FiAddNew.length} facts.`);

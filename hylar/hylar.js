@@ -5,9 +5,10 @@
 
 const fs = require('fs'),
     chalk = require('chalk'),
-    chalkRainbow = require('chalk-rainbow')
-    q = require('q')
-    util = require('util');
+    chalkRainbow = require('chalk-rainbow'),
+    q = require('q'),
+    util = require('util'),
+    _ = require("lodash");
 
 const Promise = require('bluebird');
 
@@ -355,11 +356,15 @@ class Hylar {
             // Insert, delete queries
             case 'update':
                 if (ParsingInterface.isUpdateWhere(sparql)) {
+                    // a weird scoping error happens here..
+                    // the sparql object gets changed by the inner query,
+                    // even though it should not fwict.
+                    const originalSparql = _.cloneDeep(sparql);
                     // Get construct results of the update where query
-                    let sparqlConstruct = ParsingInterface.updateWhereToConstructWhere(sparql)
-                    const deserialized = ParsingInterface.deserializeQuery(sparqlConstruct);
-                    let data = await this.query(ParsingInterface.deserializeQuery(sparqlConstruct))
-                    const parsingInt = ParsingInterface.buildUpdateQueryWithConstructResults(sparql, data);
+                    let sparqlConstruct = ParsingInterface.updateWhereToConstructWhere(sparql);
+                    const sparqlStr = ParsingInterface.deserializeQuery(sparqlConstruct);
+                    let data = await this.query(sparqlStr);
+                    const parsingInt = ParsingInterface.buildUpdateQueryWithConstructResults(originalSparql, data);
                     // Put them back in a simple update data manner to provide inner-graph inference
                     return this.query(parsingInt, reasoningMethod, syncCB, persistDerivations);
                 } else {

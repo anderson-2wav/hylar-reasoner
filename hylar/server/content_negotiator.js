@@ -47,83 +47,88 @@ module.exports = {
      * @param httpResponse: The response, with expected content type, sent back to the client
      */
     answerSparqlWithContentNegotiation: function(clientHttpRequest, httpResponse, additionalParams = { totalTime: null, response: {}}) {
-        if (additionalParams.results.hasOwnProperty('triples')) {
-            // Send response to client as turtle
-            httpResponse.set('Content-Type', acceptedContents.text_turtle)
-            httpResponse.set('Content-disposition', 'attachment; filename=results.ttl')
-            let content = ''
-            for (let triple of additionalParams.results.triples) {
-                content = `${content}${triple.toString()}`
-            }
-            httpResponse.send(content)
-            return
-        }
-
-        let sparqlJson = generateJsonSparqlResults()
-
-        // Build results as W3C sparql result standardization
-        if (additionalParams.results.length > 0) {
-            sparqlJson.head.vars = Object.keys(additionalParams.results[0])
-            sparqlJson.results.bindings = additionalParams.results
-        }
-
-        sparqlJson.metadata.time = additionalParams.totalTime
-
-
-        // Content negotiation
-        if (clientHttpRequest.accepts('application/sparql-results+xml')) {
-
-            // Deal with sparql results xml
-            let xmlVariables = [], xmlResults = []
-            // Provide sparql xml tag
-            sparqlJson.$ = xmlSparqlAttributes
-
-            // Prepare head
-            sparqlJson.head.vars.forEach(_var => {
-                if (_var.length != '') {
-                    xmlVariables.push({
-                        $: {name: _var}
-                    })
+        if (additionalParams && additionalParams.results) {
+            if (additionalParams.results.hasOwnProperty('triples')) {
+                // Send response to client as turtle
+                httpResponse.set('Content-Type', acceptedContents.text_turtle)
+                httpResponse.set('Content-disposition', 'attachment; filename=results.ttl')
+                let content = ''
+                for (let triple of additionalParams.results.triples) {
+                    content = `${content}${triple.toString()}`
                 }
-            })
+                httpResponse.send(content)
+                return
+            }
+            let sparqlJson = generateJsonSparqlResults()
 
-            // Prepare sparql results
-            sparqlJson.results.bindings.forEach(binding => {
-                let xmlBindings = []
+            // Build results as W3C sparql result standardization
+            if (additionalParams.results.length > 0) {
+                sparqlJson.head.vars = Object.keys(additionalParams.results[0])
+                sparqlJson.results.bindings = additionalParams.results
+            }
+
+            sparqlJson.metadata.time = additionalParams.totalTime
+
+
+            // Content negotiation
+            if (clientHttpRequest.accepts('application/sparql-results+xml')) {
+
+                // Deal with sparql results xml
+                let xmlVariables = [], xmlResults = []
+                // Provide sparql xml tag
+                sparqlJson.$ = xmlSparqlAttributes
+
+                // Prepare head
                 sparqlJson.head.vars.forEach(_var => {
-                    if (binding.hasOwnProperty(_var)) {
-                        let xmlBinding = {
-                            binding: {
-                                $: { name: _var }
-                            }
-                        }
-                        xmlBinding.binding[binding[_var]["token"]] = binding[_var]["value"]
-                        xmlBindings.push(xmlBinding)
+                    if (_var.length != '') {
+                        xmlVariables.push({
+                            $: {name: _var}
+                        })
                     }
                 })
-                if (xmlBindings.length > 0) xmlResults.push(xmlBindings)
-            })
+
+                // Prepare sparql results
+                sparqlJson.results.bindings.forEach(binding => {
+                    let xmlBindings = []
+                    sparqlJson.head.vars.forEach(_var => {
+                        if (binding.hasOwnProperty(_var)) {
+                            let xmlBinding = {
+                                binding: {
+                                    $: { name: _var }
+                                }
+                            }
+                            xmlBinding.binding[binding[_var]["token"]] = binding[_var]["value"]
+                            xmlBindings.push(xmlBinding)
+                        }
+                    })
+                    if (xmlBindings.length > 0) xmlResults.push(xmlBindings)
+                })
 
 
-            // Apply vars
-            delete sparqlJson.head.vars
-            if (xmlVariables.length > 0) sparqlJson.head.variable = xmlVariables
-            // Apply results
-            sparqlJson.results = {
-                $: {
-                    distinct: false,
-                    ordered: true
+                // Apply vars
+                delete sparqlJson.head.vars
+                if (xmlVariables.length > 0) sparqlJson.head.variable = xmlVariables
+                // Apply results
+                sparqlJson.results = {
+                    $: {
+                        distinct: false,
+                        ordered: true
+                    }
                 }
-            }
-            if (xmlResults.length > 0) sparqlJson.results.result = xmlResults
+                if (xmlResults.length > 0) sparqlJson.results.result = xmlResults
 
-            // Send response to client
-            httpResponse.set('Content-Type', acceptedContents.sparql_results_xml)
-            httpResponse.send(builder.buildObject(sparqlJson));
-        } else {
-            // Default is sparql json
-            httpResponse.set('Content-Type', 'application/sparql-results+json');
-            httpResponse.send(sparqlJson);
+                // Send response to client
+                httpResponse.set('Content-Type', acceptedContents.sparql_results_xml)
+                httpResponse.send(builder.buildObject(sparqlJson));
+            } else {
+                // Default is sparql json
+                httpResponse.set('Content-Type', 'application/sparql-results+json');
+                httpResponse.send(sparqlJson);
+            }
         }
+        else {
+            httpResponse.set('Content-Type', 'application/json').status(200).send({});
+        }
+
     }
 }

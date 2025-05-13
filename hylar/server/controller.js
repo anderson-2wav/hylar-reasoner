@@ -264,7 +264,7 @@ module.exports = {
         // Actual sparql query
     const query = req.body.query || req.body.update || req.query.query;
     console.log("query", query);
-        // Drop it if the query is null
+    // Drop it if the query is null
     if (!query) ContentNegotiator.answerSparqlWithContentNegotiation(req, res);
     try {
       const parsedQuery = ParsingInterface.parseSPARQL(query);

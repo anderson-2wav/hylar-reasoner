@@ -72,6 +72,7 @@ Solver = {
         }
         var consequences = [], deferred = q.defer();
         rule._skippedCt = 0;
+        rule._evaluatedCt = 0;
         // find all the matching ?x variables in causes
         var mappingList = this.getMappings(rule, facts);
         try {
@@ -102,7 +103,14 @@ Solver = {
                 }
             }
             if (true || Solver._verbose) {
-                console.log(`rule ${rule.name} inferred ${consequences.length} facts. ${rule._skippedCt} facts were already evaluated and were skipped.`);
+                let msg = `rule ${rule.name} inferred ${consequences.length} facts.`;
+                if (rule._evaluatedCt) {
+                    msg += ` evaluated ${rule._evaluatedCt} new facts.`;
+                }
+                if (rule._skippedCt) {
+                    msg += ` skipped ${rule._skippedCt} known facts.`;
+                }
+                console.log(msg);
             }
             // rule._skippedCt = 0;
             deferred.resolve(consequences);
@@ -274,6 +282,7 @@ Solver = {
                 }
                 // console.log(`rule ${rule.name} cause ${ckey} NEW ${fkey}`);
                 evalCt++;
+                rule._evaluatedCt++;
                 currentCause._seen.add(fkey);
 
                 // Get the mapping of the current cause ...

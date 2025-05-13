@@ -68,9 +68,9 @@ if (restore) {
     Hylar.allowPersist = true;
     await Hylar.restore();
     Hylar.allowPersist = wasPersist;
-    // if (reasoning) {
-    //   await Hylar.classify();
-    // }
+    if (reasoning) {
+      await Hylar.classify();
+    }
   });
 }
 
@@ -83,7 +83,7 @@ process.argv.forEach(function(value, index) {
 process.argv.forEach(function(value, index) {
   if ((value === "-p") || (value === "--port")) {
     parsedPort = parseInt(process.argv[index+1]);
-    if (parsedPort !== NaN && parsedPort > 0) {
+    if (!Number.isNaN(parsedPort) && parsedPort > 0) {
       port = parsedPort;
     }
   }

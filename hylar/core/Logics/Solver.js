@@ -71,6 +71,7 @@ Solver = {
             console.log(`Begin evaluate ${rule.name}`);
         }
         var consequences = [], deferred = q.defer();
+        rule._skippedCt = 0;
         // find all the matching ?x variables in causes
         var mappingList = this.getMappings(rule, facts);
         try {
@@ -101,8 +102,9 @@ Solver = {
                 }
             }
             if (true || Solver._verbose) {
-                console.log(`rule ${rule.name} inferred ${consequences.length} facts.`);
+                console.log(`rule ${rule.name} inferred ${consequences.length} facts. ${rule._skippedCt} facts were already evaluated and were skipped.`);
             }
+            // rule._skippedCt = 0;
             deferred.resolve(consequences);
         } catch(e) {
             deferred.reject(e);
@@ -207,7 +209,7 @@ Solver = {
      */
     substituteNextCauses: function(currentCauses, nextCause, facts, constants, rule) {
         var mappings = [];
-
+        rule._skippedCt = rule._skippedCt || 0;
         for (var i = 0; i < currentCauses.length; i++) {
             var currentCause = currentCauses[i];
             const ckey = currentCause.toString();
@@ -216,25 +218,38 @@ Solver = {
             // filer for those new facts and evaluate them
             // for currentCause.
             let _newFactCt = 0;
+            let factsNotSeen = [];
             if (this.graphHash !== currentCause.graphHash) {
+                // all Facts are put in the index before each round of reasoning
+                // therefore any facts which could match this cause _should_ be in there
                 // Use the dictionary to get only facts with match the criteria
                 const possibleFacts = this.D.getIndex(currentCause.subject, currentCause.predicate, currentCause.object);
-                // filter out any facts already seen.
-                const newFacts = possibleFacts.filter((f) => {
+                // Any facts that have already been seen by this cause should be ignorable.
+                factsNotSeen = possibleFacts.filter((f) => {
                     // global _seen from a restored reasoner
                     // I may be entirely wrong on this!
                     if (false && this.D._seen.has(f.asString)) {
                         return false;
                     }
-                    return currentCause._seen ? !currentCause._seen.has(f.asString) : true;
+                    if (currentCause._seen && currentCause._seen.has(f.asString)) {
+                        rule._skippedCt++;
+                        return false;
+                    }
+                    return true;
                 });
-                if (newFacts.length) {
-                    _newFactCt = newFacts.length;
-                    facts = Utils.uniques(newFacts, facts);
+                if (factsNotSeen) {
+                    _newFactCt = factsNotSeen.length;
+                    // I wish I had taken better notes about why I did the original
+                    // facts = Utils.uniques(newFacts, facts);
+                    const _facts = _.intersectionBy(facts, factsNotSeen, "asString");
                     // console.log(`cause ${ckey} added ${newFacts.length} new facts.`);
+                    if (_facts.length !== factsNotSeen.length) {
+                        // this is possible because currentCause may not
+                        // have seen previous explicit facts
+                    }
                 }
                 if (Solver._verbose) {
-                    console.log(`cause ${ckey} added ${newFacts.length} new of ${this.KB.length} total to evaluate ${facts.length} current facts.`);
+                    console.log(`cause ${ckey} added ${factsNotSeen.length} new of ${this.KB.length} total to evaluate ${facts.length} current facts.`);
                 }
             }
             else if (Solver._verbose) {
@@ -243,19 +258,18 @@ Solver = {
             currentCause._seen = currentCause._seen ?? new Set();
             currentCause._nextCauses = currentCause._nextCauses ?? [];
             let evalCt = 0;
-            let skippedCt = 0;
-            for (var j = 0; j < facts.length; j++) {
-                const fact = facts[j];
+            for (var j = 0; j < factsNotSeen.length; j++) {
+                const fact = factsNotSeen[j];
                 var fkey = fact.toString();
                 // global _seen from a restored reasoner
                 // I may be entirely wrong on this!
                 if (false && this.D._seen.has(fkey)) {
-                    skippedCt++;
+                    rule._skippedCt++;
                     continue;
                 }
                 if (currentCause._seen.has(fkey)) {
                     // console.log(`rule ${rule.name} cause ${ckey} skip OLD ${fkey}`);
-                    skippedCt++;
+                    rule._skippedCt++;
                     continue;
                 }
                 // console.log(`rule ${rule.name} cause ${ckey} NEW ${fkey}`);
@@ -280,7 +294,7 @@ Solver = {
                     // If there are other causes to be checked...
                     if (nextCause) {
                         // Substitute the next cause's variable with the new mapping
-                        substitutedNextCause = this.substituteFactVariables(newMapping, nextCause, [], rule);
+                        substitutedNextCause = this.substituteFactVariables(newMapping, nextCause, [currentCause], rule);
                         substitutedNextCause.mapping = newMapping;
                         substitutedNextCause._fromCause = currentCause;
                         currentCause._nextCauses.push(substitutedNextCause);

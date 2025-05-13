@@ -266,10 +266,10 @@ module.exports = {
     console.log("query", query);
         // Drop it if the query is null
     if (!query) ContentNegotiator.answerSparqlWithContentNegotiation(req, res);
-    const parsedQuery = ParsingInterface.parseSPARQL(query);
-        // Process query if it is set
     try {
-            // Check if facts are requested
+      const parsedQuery = ParsingInterface.parseSPARQL(query);
+      // Process query if it is set
+      // Check if facts are requested
       const asFacts = req.body.asFacts || req.query.asFacts;
       let facts = [];
       if (asFacts) {
@@ -288,7 +288,6 @@ module.exports = {
           };
         }
       }
-
       results = await Hylar.query(query, req.body.reasoningMethod);
       processedTime = new Date().getTime();
 

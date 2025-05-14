@@ -40,7 +40,7 @@ function Dictionary(dict, index) {
     // Each Rule and Facts which are Causes have a _seen hash which
     // notes the facts previously seen and therefore do not need to be Solved again.
     // Those _seen collections can be quite large, so they are not persisted
-    // in flattenToCollection.
+    // in saveToCollection.
     // After loadFromCollection, I think that all Rules and Causes can be said
     // to have seen all Facts. Only new ones need to be added to the specific Fact|Rule._seen
     // update: I think this may hold true only during initial classify...
@@ -380,188 +380,17 @@ Dictionary.prototype.getFactFromStringRepresentation = function(factStr, graph) 
     return false;
 }
 
-Dictionary.prototype.flattenToMap = function() {
-    const resultMap = new Map();
-    let factIdCounter = 0;
-    let ruleIdCounter = 0;
-
-    // Process each graph in the dictionary
-    for (const graphUri in this.dict) {
-        const graphMap = new Map();
-        resultMap.set(graphUri, graphMap);
-        const processedObjects = new Set(); // Track processed objects to avoid cycles
-        const objectMap = new Map(); // Map to store original objects by their IDs
-
-        // Use a queue for iterative traversal instead of recursion
-        const queue = [];
-
-        // Add only the dictionary structure to the queue
-        queue.push(this.dict[graphUri]);
-
-        // First pass: assign IDs to all Fact and Rule objects
-        while (queue.length > 0) {
-            const obj = queue.shift();
-
-            // Skip if null, undefined, or already processed
-            if (!obj || typeof obj !== 'object' || processedObjects.has(obj)) {
-                continue;
-            }
-
-            // Mark as processed to avoid cycles
-            processedObjects.add(obj);
-
-            // Handle Fact instances
-            if (obj instanceof Fact) {
-                // Skip facts with literal subjects
-                if (obj.subject && obj.subject.indexOf(`"`) === 0) {
-                    continue;
-                }
-
-                // Assign a unique ID if not already assigned
-                if (!obj._id) {
-                    obj._id = `fact_${factIdCounter++}`;
-                }
-                // Assign graphUri if not already assigned
-                if (!obj.graphs.includes(graphUri)) {
-                    obj.graphs.push(graphUri);
-                }
-
-                // Add type property
-                obj._type = 'Fact';
-
-                // Store the original object in the map
-                objectMap.set(obj._id, obj);
-
-                // Add all properties to the queue for further processing
-                for (const key in obj) {
-                    if (Object.prototype.hasOwnProperty.call(obj, key) && key !== '_id' && key !== '_type') {
-                        queue.push(obj[key]);
-                    }
-                }
-                continue;
-            }
-
-            // Handle Rule instances
-            if (obj instanceof Rule) {
-                // Assign a unique ID if not already assigned
-                if (!obj._id) {
-                    obj._id = `rule_${ruleIdCounter++}`;
-                }
-                // Assign graphUri if not already assigned
-                if (!obj.graphs.includes(graphUri)) {
-                    obj.graphs.push(graphUri);
-                }
-                // Add type property
-                obj._type = 'Rule';
-
-                // Store the original object in the map
-                objectMap.set(obj._id, obj);
-
-                // Add all properties to the queue for further processing
-                for (const key in obj) {
-                    if (Object.prototype.hasOwnProperty.call(obj, key) && key !== '_id' && key !== '_type') {
-                        queue.push(obj[key]);
-                    }
-                }
-                continue;
-            }
-
-            // Handle arrays
-            if (Array.isArray(obj)) {
-                for (let i = 0; i < obj.length; i++) {
-                    queue.push(obj[i]);
-                }
-                continue;
-            }
-
-            // Handle Maps
-            if (obj instanceof Map) {
-                for (const [key, value] of obj.entries()) {
-                    queue.push(value);
-                }
-                continue;
-            }
-
-            // For regular objects, add all properties to the queue
-            for (const key in obj) {
-                if (Object.prototype.hasOwnProperty.call(obj, key)) {
-                    queue.push(obj[key]);
-                }
-            }
-        }
-
-        // Second pass: create flattened objects with references replaced by {_id, _type}
-        processedObjects.clear();
-        queue.length = 0;
-        queue.push(this.dict[graphUri]);
-
-        // Process all objects in the objectMap to create flattened versions
-        for (const [id, obj] of objectMap.entries()) {
-            // Create a flattened copy of the object
-            const flattenedObj = { ...obj };
-
-            // Add to graph map
-            graphMap.set(id, flattenedObj);
-
-            // Process all properties to replace references
-            for (const key in flattenedObj) {
-                if (Object.prototype.hasOwnProperty.call(flattenedObj, key) && key !== '_id' && key !== '_type') {
-                    const value = flattenedObj[key];
-
-                    // Replace Fact or Rule references with {_id, _type} objects
-                    if (value instanceof Fact || value instanceof Rule) {
-                        flattenedObj[key] = { _id: value._id, _type: value._type };
-                    } else if (Array.isArray(value)) {
-                        // Handle arrays of Facts or Rules
-                        flattenedObj[key] = value.map(item => {
-                            if (item instanceof Fact || item instanceof Rule) {
-                                return { _id: item._id, _type: item._type };
-                            }
-                            return item;
-                        });
-                    } else if (typeof value === 'object' && value !== null) {
-                        // Handle nested objects - recursively flatten them
-                        const flattenedNested = {};
-                        for (const nestedKey in value) {
-                            if (Object.prototype.hasOwnProperty.call(value, nestedKey)) {
-                                const nestedValue = value[nestedKey];
-                                if (nestedValue instanceof Fact || nestedValue instanceof Rule) {
-                                    flattenedNested[nestedKey] = { _id: nestedValue._id, _type: nestedValue._type };
-                                } else if (Array.isArray(nestedValue)) {
-                                    flattenedNested[nestedKey] = nestedValue.map(item => {
-                                        if (item instanceof Fact || item instanceof Rule) {
-                                            return { _id: item._id, _type: item._type };
-                                        }
-                                        return item;
-                                    });
-                                } else {
-                                    flattenedNested[nestedKey] = nestedValue;
-                                }
-                            }
-                        }
-                        flattenedObj[key] = flattenedNested;
-                    }
-                }
-            }
-        }
-    }
-    // finally, we need to save to other fields of the Dictionary itself
-    const _dict = Dictionary.clone(this);
-    delete _dict.dict;
-    delete _dict.index;
-    delete _dict._seen;
-    resultMap.set("dictionary", _dict);
-    return resultMap;
-}
-
 /**
+ * @deprecated _This major effort appears to be a failure. The restored reasoner
+ * doesn't find expected inferences. The use of a globally seen Fact Set appears
+ * to be the problem._
  *
  * @param {MongoDB.Collection} collection
  * @return {Promise<void>}
  */
-Dictionary.prototype.flattenToCollection = async function(collection) {
+Dictionary.prototype.saveToCollection = async function(collection) {
     if (!collection) {
-        throw new Error("Collection is required for flattenToCollection");
+        throw new Error("Collection is required for saveToCollection");
     }
 
     // Clear the collection first
@@ -931,163 +760,11 @@ Dictionary.prototype.flattenToCollection = async function(collection) {
     return collection;
 };
 
-Dictionary.prototype.loadMap = function(map, opts) {
-    opts = opts || {};
-    opts.reload = opts.reload !== false;
-    if (opts.reload) {
-        const details = map.get("dictionary");
-        if (details) {
-            Object.assign(this.dict,details);
-        }
-        this.dict = {
-            '#default': {}
-        };
-        this.index = {
-            "#default": {
-                predicate: {
-                    subject: {
-                        object: null
-                    }
-                }
-            }
-        }
-    }
-    for (const [graphUri, graphMap] of map.entries()) {
-        if (graphUri === "dictionary") {
-            continue;
-        }
-        console.log(`${graphUri} graphMap has ${graphMap.size} entries`);
-        // First pass: populate objectMap with all objects converted to instances
-        const objectMap = new Map();
-        for (const [id, obj] of graphMap.entries()) {
-            let replacement;
-            switch (obj._type) {
-                case "Fact":
-                    if (!Fact.isFact(obj)) {
-                        replacement = Fact.clone(obj);
-                    }
-                    break;
-                case "Rule":
-                    if (!Rule.isRule(obj)) {
-                        replacement = Rule.clone(obj);
-                    }
-                    break;
-                case "Dictionary":
-                    if (!Dictionary.isDictionary(obj)) {
-                        replacement = Dictionary.clone(obj);
-                    }
-                    break;
-                default:
-            }
-            if (replacement) {
-                objectMap.set(id, replacement);
-            }
-            else {
-                objectMap.set(id, obj);
-            }
-        }
-        console.log(`${graphUri} objectMap has ${objectMap.size} entries`);
-
-        // next pass: replace all {_id, _type} references with actual instances
-        // Use a queue-based approach to avoid recursion and potential stack overflow
-        const queue = [];
-        const processedObjects = new Set();
-
-        // Add all instances to the queue for processing
-        for (const [id, instance] of objectMap.entries()) {
-            queue.push(instance);
-        }
-
-        // Process all objects in the queue
-        while (queue.length > 0) {
-            const obj = queue.shift();
-            // Skip if null, undefined, or already processed
-            if (!obj || typeof obj !== 'object' || processedObjects.has(obj)) {
-                continue;
-            }
-
-            // Mark as processed to avoid cycles
-            processedObjects.add(obj);
-
-            // Process all properties of the object
-            for (const key in obj) {
-                if (Object.prototype.hasOwnProperty.call(obj, key)) {
-                    const value = obj[key];
-
-                    // Replace {_id, _type} references with actual instances
-                    if (value && typeof value === 'object' && value._id && value._type) {
-                        let replacement;
-                        const pojo = objectMap.get(value._id);
-                        if (pojo) {
-                            switch (value._type) {
-                                case "Fact":
-                                    replacement = Fact.clone(pojo);
-                                    break;
-                                case "Rule":
-                                    replacement = Rule.clone(pojo);
-                                    break;
-                                case "Dictionary":
-                                    replacement = Dictionary.clone(pojo);
-                                    break;
-                                default:
-                            }
-                        }
-                        if (replacement) {
-                            obj[key] = replacement;
-                        }
-                    } else if (Array.isArray(value)) {
-                        // Handle arrays of references
-                        for (let i = 0; i < value.length; i++) {
-                            const item = value[i];
-                            if (item && typeof item === 'object') {
-                                // Process the item directly instead of pushing it to the queue
-                                // This ensures changes are reflected in the array
-                                if (item._id && item._type) {
-                                    let replacement;
-                                    const pojo = objectMap.get(item._id);
-                                    if (pojo) {
-                                        switch (item._type) {
-                                            case "Fact":
-                                                replacement = Fact.clone(pojo);
-                                                break;
-                                            case "Rule":
-                                                replacement = Rule.clone(pojo);
-                                                break;
-                                            case "Dictionary":
-                                                replacement = Dictionary.clone(pojo);
-                                                break;
-                                            default:
-                                        }
-                                    }
-                                    if (replacement) {
-                                        value[i] = replacement;
-                                    }
-                                }
-                                // Still add the item to the queue for further processing
-                                queue.push(value[i]);
-                            }
-                        }
-                    } else if (typeof value === 'object' && value !== null) {
-                        // Add nested objects to the queue for processing
-                        queue.push(value);
-                    }
-                }
-            }
-        }
-
-        // Fourth pass: add instances to the dictionary using this.put
-        for (const [id, instance] of objectMap.entries()) {
-            if (Fact.isFact(instance)) {
-                if (!Fact.isCause(instance)) {
-                    this.put(instance, graphUri);
-                }
-            }
-        }
-    }
-
-    return this;
-};
-
+/**
+ * @deprecated _This major effort appears to be a failure. The restored reasoner
+ * doesn't find expected inferences. The use of a globally seen Fact Set appears
+ * to be the problem._
+ */
 Dictionary.prototype.loadFromCollection = async function(collection, opts) {
     opts = opts || {};
     opts.reload = opts.reload !== false;

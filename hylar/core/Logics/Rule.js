@@ -14,7 +14,7 @@ const Utils = require('../Utils');
 Rule = function(slf, srf, name, ruleType = Rule.types.CUSTOM) {
     slf = slf || [];
     this._type = "Rule";
-    this.name = name;
+    this.name = name.trim();
     this.causes = [];
     this.operatorCauses = [];
     this.consequences = srf || [];

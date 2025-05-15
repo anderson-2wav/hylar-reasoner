@@ -374,6 +374,11 @@ Logics = {
     parseRules: function(strRuleList, entailment = Rule.types.CUSTOM) {
         var parsedRuleList = [];
         for (var i = 0; i < strRuleList.length; i++) {
+            // allow for a rule to be commented out with // or #
+            var ruleStr = strRuleList[i];
+            if (ruleStr.indexOf("//") === 0 || ruleStr.indexOf("#") === 0) {
+                continue;
+            }
 			let match = strRuleList[i].match('(.+)=(.+)')
 			if (match) {
 				parsedRuleList.push(this.parseRule(match[2], match[1], entailment))

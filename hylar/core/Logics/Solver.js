@@ -84,10 +84,17 @@ Solver = {
                     // Replace mappings on all consequences
                     for (var j = 0; j < rule.consequences.length; j++) {
                         const consequence= this.substituteFactVariables(mapping, rule.consequences[j], [], rule);
-                        // right here, keep from creating useless broken inferences like
+                        // TODO Make a patchup plugin for discovered aberrations
+                        // FIX OBVIOUS SILLY STUFF
+                        // Don't create inferences where the subject is a string literal, e.g.
                         //"XYZ" rdf:type xsd:string
                         if (consequence.subject?.[0] === '"') {
                             // console.log(`ignore consequence for subject: ${consequence.subject}`);
+                            continue;
+                        }
+                        // Don't create wasteful self-referential statements eg.
+                        // <https://ontology.2wav.com/bridge#confidence> <http://www.w3.org/2000/01/rdf-schema#subPropertyOf> <https://ontology.2wav.com/bridge#confidence>
+                        if (consequence.subject === consequence.object) {
                             continue;
                         }
                         if (whitelist) {

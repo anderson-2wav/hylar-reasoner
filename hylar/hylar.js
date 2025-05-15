@@ -290,8 +290,9 @@ class Hylar {
                         // rdfstore N3 parser freaks out at backslash,
                         ontologyTxt = ontologyTxt.replace(/\\/g,"/");
                     }
-                    // console.log(`loading ontologyTxt.length=${ontologyTxt.length} writing to "/tmp/ontologyTxt"`);
-                    // fs.writeFileSync("/tmp/ontologyTxt"+Date.now(),ontologyTxt);
+                    var tmpFile = "/tmp/ontologyTxt"+Date.now();
+                    console.log(`loading ontologyTxt.length=${ontologyTxt.length} writing to ${tmpFile}`);
+                    fs.writeFileSync(tmpFile,ontologyTxt);
                     let rCt = await this.sm.load(ontologyTxt, mimeType)
                     console.log(`${rCt} triples loaded in the store`);
 
@@ -624,7 +625,9 @@ class Hylar {
         var wasReasoning = this.reasoning;
         this.reasoning = false;
 
-        for (let file of files.filter((file) => { return file != 'db.conf'})) {
+        for (let file of files.filter((file) => {
+            return file != 'db.conf' && file[0] !== '.';
+        })) {
             try {
                 let content = fs.readFileSync(`${dbDir}/${file}`).toString()
                 for (let rule of dbconf.customRules) {

@@ -552,10 +552,8 @@ class Hylar {
 
     persist() {
         if (!this.allowPersist && fs) return
-        // TODO temporarily useful to know when hylar persists.
-        debugger;
-        const stack = new Error().stack;
-        console.log("====== HYLAR persist. This is not really an error, just a stack trace",stack);
+        // const stack = new Error().stack;
+        // console.log("====== HYLAR persist. This is not really an error, just a stack trace",stack);
         var dbDir = this.dbDir || './db';
         // Check if db folder exists
         if (!fs.existsSync(dbDir)){

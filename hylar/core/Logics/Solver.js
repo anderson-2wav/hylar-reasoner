@@ -112,6 +112,11 @@ Solver = {
                 }
                 if (true || Solver._verbose) {
                     let msg = `rule ${rule.name} inferred ${consequences.length} facts.`;
+                    if (Solver._verbose) {
+                        if (consequences.length > 0) {
+                            msg += `\n${JSON.stringify(consequences.map(c => c.asString), null, 2)}\n`;
+                        }
+                    }
                     if (rule._evaluatedCt) {
                         msg += ` evaluated ${rule._evaluatedCt} new facts.`;
                     }
@@ -249,12 +254,16 @@ Solver = {
                         return false;
                     }
                     if (currentCause._seen && currentCause._seen.has(f.asString)) {
+                        // console.log(`Solver rule ${rule.name} skipping _seen ${f.asString}`);
                         rule._skippedCt++;
                         return false;
                     }
                     return true;
                 });
-                if (factsNotSeen) {
+                // new **facts** always added to factsNotSeen
+                factsNotSeen.push(...facts);
+                factsNotSeen = _.uniqWith(factsNotSeen,"asString");
+                if (factsNotSeen.length) {
                     _newFactCt = factsNotSeen.length;
                     // I wish I had taken better notes about why I did the original
                     // facts = Utils.uniques(newFacts, facts);

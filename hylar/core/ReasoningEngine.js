@@ -169,7 +169,10 @@ ReasoningEngine = {
                     for (let i=0; i < insertionSet.length; i++) {
                         D.put(insertionSet[i]);
                     }
-
+                    // KB should include the inserted facts, so
+                    // Solver will compute the graphHash including new facts,
+                    // otherwise Solver might skip new facts.
+                    KB = D.values();
                 }
 
                 Solver._verbose = false;

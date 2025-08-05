@@ -737,6 +737,16 @@ class Hylar {
         let derivations = await Reasoner.evaluate(FeIns, FeDel, this.dict, this.rMethod, this.rules, whitelist);
         const endReasoning = Date.now();
         Hylar.notify(`Finished Reasoner.evaluate in ${Math.round((endReasoning-startReasoning)/1000)} seconds.`);
+        const _inserted = [];
+        const _deleted = [];
+        if (derivations && derivations.additions) {
+            _inserted.push(derivations.additions.map(f => f.asString));
+        }
+        if (derivations && derivations.deletions) {
+            _deleted.push(derivations.deletions.map(f => f.asString));
+        }
+        console.log("Inserted", _inserted);
+        console.log("Deleted", _deleted);
 
         let result;
         // Only actually update the fact store if we intend to

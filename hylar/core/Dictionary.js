@@ -381,6 +381,24 @@ Dictionary.prototype.getFactFromStringRepresentation = function(factStr, graph) 
 }
 
 /**
+ * CAUTION: useful for testing small dicts, dangerous on large ones.
+ * @return {string}
+ */
+Dictionary.prototype.toString = function() {
+    var obj = {};
+    for (var graph in this.dict) {
+        obj[graph] = obj[graph] || {};
+        for (var key in this.dict[graph]) {
+            obj[graph][key] = obj[graph][key] || [];
+            for (var i = 0; i < this.dict[graph][key].length; i++) {
+                obj[graph][key].push(this.dict[graph][key][i].toString());
+            }
+        }
+    }
+    return JSON.stringify(obj,null,2);
+};
+
+/**
  * @deprecated _This major effort appears to be a failure. The restored reasoner
  * doesn't find expected inferences. The use of a globally seen Fact Set appears
  * to be the problem._

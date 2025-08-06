@@ -349,7 +349,12 @@ class Hylar {
             throw e;
         }
 
-        if (this.reasoning == false) return this.sm.query(query)
+        // TODO I THINK THIS IS THE WRONG WAY TO HANDLE UPDATES W/O REASONING
+        // this updates the store, but never updates the dictionary,
+        // so future reasoning will never see these inserts.
+        if (false && this.reasoning == false) {
+            return this.sm.query(query);
+        }
 
         this.updateReasoningMethod(reasoningMethod);
 
@@ -729,21 +734,30 @@ class Hylar {
         FeIns = ParsingInterface.triplesToFacts(iTriples, true, (this.rMethod == Reasoner.process.it.incrementally));
         // Hylar.notify('Starting ParsingInterface.triplesToFacts (dTriples).');
         FeDel = ParsingInterface.triplesToFacts(dTriples, true, (this.rMethod == Reasoner.process.it.incrementally));
-        const startReasoning = Date.now();
-        // experiment with passing dict to Reasoner, so that reasoner can use index
-        // this.axioms appears to be unused
-        const KB = F.concat(this.axioms);
-        Hylar.notify(`Starting Reasoner.evaluate. ${FeIns.length} inserted. ${FeDel.length} deleted. ${KB.length} existing facts.`);
-        let derivations = await Reasoner.evaluate(FeIns, FeDel, this.dict, this.rMethod, this.rules, whitelist);
-        const endReasoning = Date.now();
-        Hylar.notify(`Finished Reasoner.evaluate in ${Math.round((endReasoning-startReasoning)/1000)} seconds.`);
-        const _inserted = [];
-        const _deleted = [];
+        let derivations;
+        if (this.reasoning === false) {
+            derivations = {
+                additions: FeIns,
+                deletions: FeDel
+            }
+        }
+        else {
+            const startReasoning = Date.now();
+            // experiment with passing dict to Reasoner, so that reasoner can use index
+            // this.axioms appears to be unused
+            const KB = F.concat(this.axioms);
+            Hylar.notify(`Starting Reasoner.evaluate. ${FeIns.length} inserted. ${FeDel.length} deleted. ${KB.length} existing facts.`);
+            derivations = await Reasoner.evaluate(FeIns, FeDel, this.dict, this.rMethod, this.rules, whitelist);
+            const endReasoning = Date.now();
+            Hylar.notify(`Finished Reasoner.evaluate in ${Math.round((endReasoning-startReasoning)/1000)} seconds.`);
+        }
+        let _inserted = [];
+        let _deleted = [];
         if (derivations && derivations.additions) {
-            _inserted.push(derivations.additions.map(f => f.asString));
+            _inserted = derivations.additions.map(f => f.asString);
         }
         if (derivations && derivations.deletions) {
-            _deleted.push(derivations.deletions.map(f => f.asString));
+            _deleted = derivations.deletions.map(f => f.asString);
         }
         console.log("Inserted", _inserted);
         console.log("Deleted", _deleted);

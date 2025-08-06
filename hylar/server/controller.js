@@ -56,7 +56,7 @@ process.argv.forEach(function(value, index) {
   }
 });
 
-const Hylar = new H({
+let Hylar = new H({
   persistent, entailment, dbDir, reasoning
 });
 
@@ -555,7 +555,7 @@ module.exports = {
     next();
   },
 
-  queryFacts: async function(req, res) {
+  update: async function(req, res) {
     const _derivations = {
       additions: [],
       deletions: []
@@ -596,13 +596,35 @@ module.exports = {
     try {
       // If a query is provided, execute it first (like an INSERT to modify the KB)
       if (req.body.query) {
+        const query = req.body.query;
+        console.log("Controller.update query:", query);
+        let sparql;
+        try {
+          // Parse original query
+          sparql = ParsingInterface.parseSPARQL(query);
+          console.log("sparql", sparql);
+        }
+        catch (e) {
+          H.displayError("Problem with SPARQL query: " + query + "Error: " + e.message);
+          throw e;
+        }
+        if (sparql.type !== "update") {
+          throw new Error("/update requires update query, e.g. INSERT DATA, DELETE DATA, DELETE WHERE");
+        }
         await Hylar.query(req.body.query, undefined, syncCb);
       }
       res.status(200).json(_derivations);
     }
     catch (error) {
-      console.error("Error in queryFacts:", error);
+      console.error("Error in update:", error);
       res.status(500).json({ error: error.message, stack: error.stack });
     }
   },
+  /**
+   * used to force Hylar instance for in-process testing
+   * @param hylar
+   */
+  setHylar: (hylar) => {
+    Hylar = hylar;
+  }
 };

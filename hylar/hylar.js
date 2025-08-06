@@ -370,9 +370,9 @@ class Hylar {
                     let sparqlConstruct = ParsingInterface.updateWhereToConstructWhere(sparql);
                     const sparqlStr = ParsingInterface.deserializeQuery(sparqlConstruct);
                     let data = await this.query(sparqlStr);
-                    const parsingInt = ParsingInterface.buildUpdateQueryWithConstructResults(originalSparql, data);
+                    const deleteDataQuery = ParsingInterface.buildUpdateQueryWithConstructResults(originalSparql, data);
                     // Put them back in a simple update data manner to provide inner-graph inference
-                    return this.query(parsingInt, reasoningMethod, syncCB, persistDerivations);
+                    return this.query(deleteDataQuery, reasoningMethod, syncCB, persistDerivations);
                 } else {
                     return this.treatUpdateWithGraph(query, syncCB, persistDerivations, whitelist);
                 }

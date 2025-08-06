@@ -79,7 +79,7 @@ app.post('/query', Controller.processSPARQL);
 app.get('/query', Controller.processSPARQL);
 
 // Facts API
-app.post('/queryFacts', Controller.queryFacts);
+app.post('/update', Controller.update);
 
 // SPARQL endpoint interface
 app.get('/sparql', Controller.sparqlInterface);

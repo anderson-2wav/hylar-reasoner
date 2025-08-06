@@ -554,4 +554,55 @@ module.exports = {
     Hylar.clean();
     next();
   },
+
+  queryFacts: async function(req, res) {
+    const _derivations = {
+      additions: [],
+      deletions: []
+    };
+    const prepareFactForAPI = (fact) => {
+      try {
+        return {
+          graph: fact.graph,
+          subject: fact.subject || null,
+          predicate: fact.predicate || null,
+          object: fact.object || null,
+          isValid: typeof fact.isValid === "function" ? fact.isValid() : null,
+          explicit: fact.explicit || null,
+          causedBy: fact.causedBy || null,
+          rule: fact.rule || null,
+          asString: fact.asString || null
+        };
+      }
+      catch (err) {
+        console.error("Error preparing fact for API:", err);
+        return {
+          graph: fact.graph || "ERROR",
+          subject: fact.subject || "ERROR",
+          predicate: fact.predicate || "ERROR",
+          object: fact.object || "ERROR",
+          error: err.message
+        };
+      }
+    };
+    const syncCb = (derivations) => {
+      derivations.additions.forEach(f => {
+        _derivations.additions.push(prepareFactForAPI(f));
+      });
+      derivations.deletions.forEach(f => {
+        _derivations.deletions.push(prepareFactForAPI(f));
+      });
+    };
+    try {
+      // If a query is provided, execute it first (like an INSERT to modify the KB)
+      if (req.body.query) {
+        await Hylar.query(req.body.query, undefined, syncCb);
+      }
+      res.status(200).json(_derivations);
+    }
+    catch (error) {
+      console.error("Error in queryFacts:", error);
+      res.status(500).json({ error: error.message, stack: error.stack });
+    }
+  },
 };

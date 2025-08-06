@@ -78,6 +78,9 @@ app.get('/rule/remove/:name', Controller.removeRule, Controller.renderRules);
 app.post('/query', Controller.processSPARQL);
 app.get('/query', Controller.processSPARQL);
 
+// Facts API
+app.post('/queryFacts', Controller.queryFacts);
+
 // SPARQL endpoint interface
 app.get('/sparql', Controller.sparqlInterface);
 app.post('/sparql', Controller.simpleSparql, Controller.sparqlInterface);

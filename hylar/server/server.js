@@ -26,6 +26,7 @@ app.set('view engine', 'ejs');
 
 // parse text/plain
 app.use(function(req, res, next){
+    console.log("app.use req.url",req.url);
     if (req.is('text/*')) {
         req.text = '';
         req.setEncoding('utf8');
@@ -80,6 +81,7 @@ app.get('/query', Controller.processSPARQL);
 
 // Facts API
 app.post('/update', Controller.update);
+app.get('/update', Controller.update);
 
 // SPARQL endpoint interface
 app.get('/sparql', Controller.sparqlInterface);

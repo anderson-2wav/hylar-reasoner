@@ -18,7 +18,7 @@ let ontoDir = appDir + "/ontologies",
   parsedPort,
   contextPath = "";
 
-let persistent = true;
+let persistent = false;
 let entailment = "owl2rl";
 let dbDir;
 let restore = false;
@@ -29,6 +29,9 @@ console.log(process.argv);
 process.argv.forEach(function(value, index) {
   if ((value === "--no-persist")) {
     persistent = false;
+  }
+  else if ((value === "--persist")) {
+    persistent = true;
   }
 });
 
@@ -556,6 +559,7 @@ module.exports = {
   },
 
   update: async function(req, res) {
+    console.log("Hylar update",req.body,req.query);
     const _derivations = {
       additions: [],
       deletions: []
@@ -569,8 +573,8 @@ module.exports = {
           object: fact.object || null,
           isValid: typeof fact.isValid === "function" ? fact.isValid() : null,
           explicit: fact.explicit || null,
-          causedBy: fact.causedBy || null,
-          rule: fact.rule || null,
+          causedBy: Array.isArray(fact.causedBy) ? fact.causedBy.map(f => f.toCHR()) : (typeof fact.causedBy === "object" ? fact.causedBy.toCHR() : null),
+          rule: fact.rule ? fact.rule.toCHR() : null,
           asString: fact.asString || null
         };
       }
@@ -594,9 +598,9 @@ module.exports = {
       });
     };
     try {
+      const query = req.method === "GET" ? req.query.query : req.body;
       // If a query is provided, execute it first (like an INSERT to modify the KB)
-      if (req.body.query) {
-        const query = req.body.query;
+      if (query) {
         console.log("Controller.update query:", query);
         let sparql;
         try {
@@ -611,7 +615,7 @@ module.exports = {
         if (sparql.type !== "update") {
           throw new Error("/update requires update query, e.g. INSERT DATA, DELETE DATA, DELETE WHERE");
         }
-        await Hylar.query(req.body.query, undefined, syncCb);
+        await Hylar.query(query, undefined, syncCb);
       }
       res.status(200).json(_derivations);
     }

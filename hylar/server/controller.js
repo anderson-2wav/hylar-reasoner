@@ -598,7 +598,7 @@ module.exports = {
       });
     };
     try {
-      const query = req.method === "GET" ? req.query.query : req.body;
+      const query = req.method === "GET" ? req.query.query : (req.body.query ?? req.body);
       // If a query is provided, execute it first (like an INSERT to modify the KB)
       if (query) {
         console.log("Controller.update query:", query);

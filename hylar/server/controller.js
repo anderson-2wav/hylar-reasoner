@@ -655,7 +655,6 @@ module.exports = {
    * @param res
    */
   classifyOn: async function(req, res) {
-    debugger;
     const _derivations = {
       additions: [],
       deletions: []

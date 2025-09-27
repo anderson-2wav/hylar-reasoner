@@ -82,6 +82,7 @@
     "clientize": "browserify hylar/hylar.js -o hylar-client.js",
     "start": "node hylar/server/server.js",
     "start-4000": "node hylar/server/server.js --port 4000",
+    "start-4001": "node hylar/server/server.js --port 4001",
     "start-tb": "node hylar/server/server.js -rm tagBased",
     "test": "cross-env rm=incremental mocha test/*_test.js"
   },

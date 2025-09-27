@@ -80,7 +80,10 @@ app.get('/rule', Controller.listRules);
 app.get('/rule/remove/:name', Controller.removeRule, Controller.renderRules);
 
 // SPARQL query processing
-app.post('/query', Controller.processSPARQL);
+app.post('/query', async function(req,res) {
+    console.log("/query POST");
+    return Controller.processSPARQL(req,res);
+});
 app.get('/query', Controller.processSPARQL);
 
 // Facts API

@@ -625,6 +625,92 @@ module.exports = {
     }
   },
   /**
+   * Toggle classification/reasoning off and return derivations
+   * @param req
+   * @param res
+   */
+  classifyOff: async function(req, res) {
+    try {
+      await Hylar.setReasoningOff();
+      res.status(200).json({
+        reasoning: false,
+        message: "Classification/reasoning has been turned off",
+        derivations: {
+          additions: [],
+          deletions: []
+        }
+      });
+    }
+    catch (error) {
+      console.error("Error turning off classification:", error);
+      res.status(500).json({ error: error.message });
+    }
+  },
+
+  /**
+   * Toggle classification/reasoning on and return derivations
+   * @param req
+   * @param res
+   */
+  classifyOn: async function(req, res) {
+    const _derivations = {
+      additions: [],
+      deletions: []
+    };
+
+    const prepareFactForAPI = (fact) => {
+      try {
+        return {
+          graph: fact.graph,
+          subject: fact.subject || null,
+          predicate: fact.predicate || null,
+          object: fact.object || null,
+          isValid: typeof fact.isValid === "function" ? fact.isValid() : null,
+          explicit: fact.explicit || null,
+          causedBy: Array.isArray(fact.causedBy) ? fact.causedBy.map(f => f.toCHR()) : (typeof fact.causedBy === "object" ? fact.causedBy.toCHR() : null),
+          rule: fact.rule ? fact.rule.toCHR() : null,
+          asString: fact.asString || null
+        };
+      }
+      catch (err) {
+        console.error("Error preparing fact for API:", err);
+        return {
+          graph: fact.graph || "ERROR",
+          subject: fact.subject || "ERROR",
+          predicate: fact.predicate || "ERROR",
+          object: fact.object || "ERROR",
+          error: err.message
+        };
+      }
+    };
+
+    const syncCb = (derivations) => {
+      derivations.additions.forEach(f => {
+        _derivations.additions.push(prepareFactForAPI(f));
+      });
+      derivations.deletions.forEach(f => {
+        _derivations.deletions.push(prepareFactForAPI(f));
+      });
+    };
+
+    try {
+      await Hylar.setReasoningOn();
+      // Trigger classification to capture derivations
+      await Hylar.classify(syncCb);
+
+      res.status(200).json({
+        reasoning: true,
+        message: "Classification/reasoning has been turned on",
+        derivations: _derivations
+      });
+    }
+    catch (error) {
+      console.error("Error turning on classification:", error);
+      res.status(500).json({ error: error.message });
+    }
+  },
+
+  /**
    * used to force Hylar instance for in-process testing
    * @param hylar
    */

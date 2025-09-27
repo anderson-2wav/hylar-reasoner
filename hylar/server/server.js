@@ -66,6 +66,10 @@ app.get('/ontology/:filename', Controller.getOntology, Controller.sendOntology);
 app.delete('/ontology/:filename', Controller.removeOntology, Controller.acknowledgeEnd);
 app.get('/remove/:filename', Controller.removeOntology, Controller.hello);
 
+// Classification control API - must come before /classify/:filename
+app.get('/classify/off', Controller.classifyOff);
+app.get('/classify/on', Controller.classifyOn);
+
 app.get('/classify/:filename', Controller.getOntology, Controller.loadOntology, Controller.hello);
 app.get('/classifyRemotely/:filename', Controller.getOntology, Controller.loadOntology, Controller.sendHylarContents);
 app.post('/classify', Controller.escapeStrOntology, Controller.loadOntology, Controller.acknowledgeEnd);

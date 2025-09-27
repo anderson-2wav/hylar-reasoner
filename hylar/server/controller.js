@@ -631,7 +631,9 @@ module.exports = {
    */
   classifyOff: async function(req, res) {
     try {
-      await Hylar.setReasoningOff();
+      // the setReasoning Fns trigger a recompute which blows our derivations callback
+      // await Hylar.setReasoningOff();
+      Hylar.reasoning = false;
       res.status(200).json({
         reasoning: false,
         message: "Classification/reasoning has been turned off",
@@ -653,6 +655,7 @@ module.exports = {
    * @param res
    */
   classifyOn: async function(req, res) {
+    debugger;
     const _derivations = {
       additions: [],
       deletions: []
@@ -694,9 +697,11 @@ module.exports = {
     };
 
     try {
-      await Hylar.setReasoningOn();
+      // the setReasoning Fns trigger a recompute which blows our derivations callback
+      // await Hylar.setReasoningOn();
+      Hylar.reasoning = true;
       // Trigger classification to capture derivations
-      await Hylar.classify(syncCb);
+      await Hylar.classify(undefined, syncCb);
 
       res.status(200).json({
         reasoning: true,

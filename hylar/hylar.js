@@ -850,7 +850,7 @@ class Hylar {
      * already loaded in the triplestore.
      * @returns {*}
      */
-    async classify(graph) {
+    async classify(graph,classifyCallback) {
         const start = Date.now();
         Hylar.notify('Classification started.');
 
@@ -905,8 +905,9 @@ class Hylar {
         }
 
         let derivations = await Reasoner.evaluate(filteredFacts, [], this.dict, this.rMethod, this.rules);
-        if (this.classifyCallback) {
-            this.classifyCallback(derivations);
+        classifyCallback = classifyCallback || this.classifyCallback;
+        if (classifyCallback) {
+            classifyCallback(derivations);
         }
         this.registerDerivations(derivations, graph);
 

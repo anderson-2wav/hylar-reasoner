@@ -564,37 +564,13 @@ module.exports = {
       additions: [],
       deletions: []
     };
-    const prepareFactForAPI = (fact) => {
-      try {
-        return {
-          graph: fact.graph,
-          subject: fact.subject || null,
-          predicate: fact.predicate || null,
-          object: fact.object || null,
-          isValid: typeof fact.isValid === "function" ? fact.isValid() : null,
-          explicit: fact.explicit || null,
-          causedBy: Array.isArray(fact.causedBy) ? fact.causedBy.map(f => f.toCHR()) : (typeof fact.causedBy === "object" ? fact.causedBy.toCHR() : null),
-          rule: fact.rule ? fact.rule.toCHR() : null,
-          asString: fact.asString || null
-        };
-      }
-      catch (err) {
-        console.error("Error preparing fact for API:", err);
-        return {
-          graph: fact.graph || "ERROR",
-          subject: fact.subject || "ERROR",
-          predicate: fact.predicate || "ERROR",
-          object: fact.object || "ERROR",
-          error: err.message
-        };
-      }
-    };
+
     const syncCb = (derivations) => {
       derivations.additions.forEach(f => {
-        _derivations.additions.push(prepareFactForAPI(f));
+        _derivations.additions.push(this.prepareFactForAPI(f));
       });
       derivations.deletions.forEach(f => {
-        _derivations.deletions.push(prepareFactForAPI(f));
+        _derivations.deletions.push(this.prepareFactForAPI(f));
       });
     };
     try {
@@ -660,38 +636,12 @@ module.exports = {
       deletions: []
     };
 
-    const prepareFactForAPI = (fact) => {
-      try {
-        return {
-          graph: fact.graph,
-          subject: fact.subject || null,
-          predicate: fact.predicate || null,
-          object: fact.object || null,
-          isValid: typeof fact.isValid === "function" ? fact.isValid() : null,
-          explicit: fact.explicit || null,
-          causedBy: Array.isArray(fact.causedBy) ? fact.causedBy.map(f => f.toCHR()) : (typeof fact.causedBy === "object" ? fact.causedBy.toCHR() : null),
-          rule: fact.rule ? fact.rule.toCHR() : null,
-          asString: fact.asString || null
-        };
-      }
-      catch (err) {
-        console.error("Error preparing fact for API:", err);
-        return {
-          graph: fact.graph || "ERROR",
-          subject: fact.subject || "ERROR",
-          predicate: fact.predicate || "ERROR",
-          object: fact.object || "ERROR",
-          error: err.message
-        };
-      }
-    };
-
     const syncCb = (derivations) => {
       derivations.additions.forEach(f => {
-        _derivations.additions.push(prepareFactForAPI(f));
+        _derivations.additions.push(this.prepareFactForAPI(f));
       });
       derivations.deletions.forEach(f => {
-        _derivations.deletions.push(prepareFactForAPI(f));
+        _derivations.deletions.push(this.prepareFactForAPI(f));
       });
     };
 
@@ -720,5 +670,66 @@ module.exports = {
    */
   setHylar: (hylar) => {
     Hylar = hylar;
+  },
+
+  /**
+   * An internal util fn to create a serializable version of a Fact for API.
+   * @private
+   * @param fact
+   * @return {{graph, subject: null, predicate: null, object: null, isValid: (*|null), explicit: boolean, causedBy: ((string|*)[]|string|*|null), rule: ({subject: (*), predicate: (*), object: (*), axiom: (*|string), name: string}|null), asString: (boolean|string|*|null)}|{graph: string, subject: string, predicate: string, object: string, error}}
+   */
+  prepareFactForAPI: (fact) => {
+    // wip:
+    // get inference rule metadata for inferred facts
+    let rule;
+    if (!fact.explicit && fact.rule?.causes?.length) {
+      // TODO we may want to expand this to include all causes
+      const cause = fact.rule.causes[0]; // Use first cause as most relevant
+      const getMappedTerm = (causeTerm) => {
+        if (causeTerm[0] === "?") {
+          // Variable - look up in fact mapping
+          return fact.mapping?.[causeTerm];
+        }
+        else {
+          return causeTerm;
+        }
+      };
+
+      const subject = getMappedTerm(cause.subject);
+      const predicate = getMappedTerm(cause.predicate);
+      const object = getMappedTerm(cause.object);
+      const axiom = fact.rule.axiom;
+      rule = {
+        subject,
+        predicate,
+        object,
+        axiom,
+        name: fact.rule.name
+      };
+    }
+
+    try {
+      return {
+        graph: fact.graph,
+        subject: fact.subject || null,
+        predicate: fact.predicate || null,
+        object: fact.object || null,
+        isValid: typeof fact.isValid === "function" ? fact.isValid() : null,
+        explicit: fact.explicit || false,
+        causedBy: Array.isArray(fact.causedBy) ? fact.causedBy.map(f => f.toCHR()) : (typeof fact.causedBy === "object" ? fact.causedBy.toCHR() : null),
+        rule: rule || null,
+        asString: fact.asString || null
+      };
+    }
+    catch (err) {
+      console.error("Error preparing fact for API:", err);
+      return {
+        graph: fact.graph || "ERROR",
+        subject: fact.subject || "ERROR",
+        predicate: fact.predicate || "ERROR",
+        object: fact.object || "ERROR",
+        error: err.message
+      };
+    }
   }
 };

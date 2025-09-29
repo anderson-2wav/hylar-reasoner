@@ -68,7 +68,11 @@ app.get('/remove/:filename', Controller.removeOntology, Controller.hello);
 
 // Classification control API - must come before /classify/:filename
 app.get('/classify/off', Controller.classifyOff);
-app.get('/classify/on', Controller.classifyOn);
+app.get('/classify/on', async function(req, res){
+    // this wrapper seems to make it easier to set a breakpoint
+    console.log("classify/on");
+    return Controller.classifyOn(req, res);
+});
 
 app.get('/classify/:filename', Controller.getOntology, Controller.loadOntology, Controller.hello);
 app.get('/classifyRemotely/:filename', Controller.getOntology, Controller.loadOntology, Controller.sendHylarContents);

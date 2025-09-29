@@ -11,10 +11,11 @@ const Utils = require('../Utils');
  * @param ra the consequence facts
  * @constructor
  */
-Rule = function(slf, srf, name, ruleType = Rule.types.CUSTOM) {
+Rule = function(slf, srf, name, ruleType = Rule.types.CUSTOM, axiom = "unknown") {
     slf = slf || [];
     this._type = "Rule";
     this.name = name.trim();
+    this.axiom = axiom;
     this.causes = [];
     this.operatorCauses = [];
     this.consequences = srf || [];
@@ -89,7 +90,8 @@ Rule.prototype = {
         for(var key in this.operatorCauses) {
             factConj += ' ^ ' + this.operatorCauses[key].toString().substring(1).replace(/,/g, '');
         }
-        return factConj.substr(3) + ' -> ' + this.consequences.toString().substring(1).replace(/,/g, '');
+        const watIs = this.consequences.toString();
+        return factConj.substr(3) + ' -> ' + this.consequences.toString().substring(0).replace(/,/g, ' ');
     },
 
     setName: function(name) {

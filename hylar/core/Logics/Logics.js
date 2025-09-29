@@ -396,7 +396,7 @@ Logics = {
         let causes = this._createFactSetFromTriples(headTriples)
         let consequences = this._createFactSetFromTriples(bodyTriples)
 
-        return new Rule(causes, consequences, name, entailment)
+        return new Rule(causes, consequences, name, entailment, strRule)
     },
 
     _createFactSetFromTriples(triples) {

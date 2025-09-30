@@ -35,6 +35,7 @@ Solver = {
         this.graphHash = Utils.stringHash(this.KB.map(f => f.asString));
         var deferred = q.defer(), promises = [], cons = [], filteredFacts;
         for (var key in rs) {
+            const rul = rs[key]; // just for bps
             if (doTagging) {
                 promises.push(this.evaluateThroughRestrictionWithTagging(rs[key], facts, resolvedImplicitFactSet));
             } else {

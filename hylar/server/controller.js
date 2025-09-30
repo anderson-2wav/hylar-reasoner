@@ -679,9 +679,9 @@ module.exports = {
    * @return {{graph, subject: null, predicate: null, object: null, isValid: (*|null), explicit: boolean, causedBy: ((string|*)[]|string|*|null), rule: ({subject: (*), predicate: (*), object: (*), axiom: (*|string), name: string}|null), asString: (boolean|string|*|null)}|{graph: string, subject: string, predicate: string, object: string, error}}
    */
   prepareFactForAPI: (fact) => {
-    // wip:
+    // wip: the old ctb way is pretty lame
     // get inference rule metadata for inferred facts
-    let rule;
+    let rule, details;
     if (!fact.explicit && fact.rule?.causes?.length) {
       // TODO we may want to expand this to include all causes
       const cause = fact.rule.causes[0]; // Use first cause as most relevant
@@ -695,6 +695,12 @@ module.exports = {
         }
       };
 
+      // try something experimental
+      const details = {
+        causes: (fact.rule.causes ?? []).map(cause => cause.toString()),
+        consequences: (fact.rule.consequences ?? []).map(consequence => consequence.toString())
+      };
+
       const subject = getMappedTerm(cause.subject);
       const predicate = getMappedTerm(cause.predicate);
       const object = getMappedTerm(cause.object);
@@ -704,7 +710,8 @@ module.exports = {
         predicate,
         object,
         axiom,
-        name: fact.rule.name
+        name: fact.rule.name,
+        details
       };
     }
 

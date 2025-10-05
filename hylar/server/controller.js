@@ -116,7 +116,7 @@ process.argv.forEach(function(value, index) {
   }
 });
 
-module.exports = {
+const Controller = {
 
     /**
      * Server configuration
@@ -567,10 +567,10 @@ module.exports = {
 
     const syncCb = (derivations) => {
       derivations.additions.forEach(f => {
-        _derivations.additions.push(this.prepareFactForAPI(f));
+        _derivations.additions.push(Controller.prepareFactForAPI(f));
       });
       derivations.deletions.forEach(f => {
-        _derivations.deletions.push(this.prepareFactForAPI(f));
+        _derivations.deletions.push(Controller.prepareFactForAPI(f));
       });
     };
     try {
@@ -740,3 +740,5 @@ module.exports = {
     }
   }
 };
+
+module.exports = Controller;

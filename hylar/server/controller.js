@@ -371,6 +371,11 @@ const Controller = {
     }
     catch (error) {
       Hylar.addToQueryHistory(req.body.query, false);
+      if (error.message.includes("Parse error")) {
+        const queryFile = "/tmp/query-error.sparql";
+        console.error("write bad query to",queryFile);
+        fs.writeFileSync(queryFile, query, { encoding: "utf8" });
+      }
       res.status(500).send(error.message);
     }
   },
@@ -575,6 +580,8 @@ const Controller = {
     };
     try {
       const query = req.method === "GET" ? req.query.query : (req.body.query ?? req.body);
+      const persistDerivations = req.method === "GET" ? req.query.save !== "false" : req.body.save !== false;
+      console.log("persistDerivations", persistDerivations);
       // If a query is provided, execute it first (like an INSERT to modify the KB)
       if (query) {
         console.log("Controller.update query:", query);
@@ -591,7 +598,7 @@ const Controller = {
         if (sparql.type !== "update") {
           throw new Error("/update requires update query, e.g. INSERT DATA, DELETE DATA, DELETE WHERE");
         }
-        await Hylar.query(query, undefined, syncCb);
+        await Hylar.query(query, undefined, syncCb, persistDerivations);
       }
       res.status(200).json(_derivations);
     }

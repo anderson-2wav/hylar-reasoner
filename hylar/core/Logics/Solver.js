@@ -95,7 +95,7 @@ Solver = {
                                 continue;
                             }
                             // Don't create wasteful self-referential statements eg.
-                            // <https://ontology.2wav.com/bridge#confidence> <http://www.w3.org/2000/01/rdf-schema#subPropertyOf> <https://ontology.2wav.com/bridge#confidence>
+                            // <https://ontologize.2wav.com/ontology/bridge#confidence> <http://www.w3.org/2000/01/rdf-schema#subPropertyOf> <https://ontologize.2wav.com/ontology/bridge#confidence>
                             if (consequence.subject === consequence.object) {
                                 continue;
                             }

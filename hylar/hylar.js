@@ -343,7 +343,16 @@ class Hylar {
         try {
             // Parse original query
             sparql = ParsingInterface.parseSPARQL(query)
-            console.log("sparql", sparql);
+            // console.log("sparql", sparql);
+            if (sparql.updates?.[0]?.insert?.[0]?.triples) {
+                for (const triple of sparql.updates?.[0]?.insert?.[0]?.triples) {
+                    const rr = triple.object.match(/^"(.*)"$/s);
+                    if (rr) {
+                        console.log(`replace quoted object string`, triple.object);
+                        triple.object = rr[1];
+                    }
+                }
+            }
         } catch (e) {
             Hylar.displayError('Problem with SPARQL query: ' + query + "Error: " + e.message);
             throw e;

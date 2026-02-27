@@ -348,7 +348,7 @@ class Hylar {
                 for (const triple of sparql.updates?.[0]?.insert?.[0]?.triples) {
                     const rr = triple.object.match(/^"(.*)"$/s);
                     if (rr) {
-                        console.log(`replace quoted object string`, triple.object);
+                        // console.log(`replace quoted object string`, triple.object);
                         triple.object = rr[1];
                     }
                 }

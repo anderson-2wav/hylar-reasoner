@@ -584,7 +584,7 @@ const Controller = {
       console.log("persistDerivations", persistDerivations);
       // If a query is provided, execute it first (like an INSERT to modify the KB)
       if (query) {
-        console.log("Controller.update query:", query);
+        // console.log("Controller.update query:", query);
         let sparql;
         try {
           // Parse original query

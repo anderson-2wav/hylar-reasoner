@@ -1,4 +1,7 @@
-10.0.4 Customed by 2wav for CyberTalent Bridge
+This module is derived from [HyLAR-Reasoner](https://github.com/ucbl/HyLAR-Reasoner) by the LIRIS lab at Université Claude Bernard Lyon 1, originally licensed under MIT. 
+
+This repository is based upon npm module https://www.npmjs.com/package/hylar 10.0.4
+Significant modifications have been made for use in the BOLD stack.
 
 To install, please use
 

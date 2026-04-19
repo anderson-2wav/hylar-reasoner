@@ -1,7 +1,9 @@
-This module is derived from [HyLAR-Reasoner](https://github.com/ucbl/HyLAR-Reasoner) by the LIRIS lab at Université Claude Bernard Lyon 1, originally licensed under MIT. 
+This module is derived from the npm module https://www.npmjs.com/package/hylar 10.0.4, based on [HyLAR-Reasoner](https://github.com/ucbl/HyLAR-Reasoner) by the LIRIS lab at Université Claude Bernard Lyon 1, originally licensed under MIT. We wish that we'd started with a clean fork of the github repo, but for now, this is what we have to share.
 
-This repository is based upon npm module https://www.npmjs.com/package/hylar 10.0.4
-Significant modifications have been made for use in the BOLD stack.
+Significant modifications have been made for use in the BOLD stack. In broad strokes, 
+- We added features to return Fact structures instead of sparql from queries and updates, so that BOLD can distinguish between inferred and explicit assertions. 
+- We've worked on reasoning optimization, which appears to be effective for typical use cases in BOLD, but may miss some inferences in other use cases. 
+- Insertions into the triplestore may return inferred Facts without saving to the triplestore. In BOLD the reasoner triplestore primarily contains TBox assertions necessary for reasoning, without holding an entire ABox database in memory.    
 
 To install, please use
 

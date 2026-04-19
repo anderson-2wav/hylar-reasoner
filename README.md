@@ -7,7 +7,7 @@ Significant modifications have been made for use in the BOLD stack. In broad str
 
 To install, please use
 
-npm install --save git+https://git.2wav.com/ctb/hylar-reasoner.git
+npm install --save git+https://github.com/anderson-2wav/hylar-reasoner.git
 
 Hylar query can now be passed a callback function formatted as 
 

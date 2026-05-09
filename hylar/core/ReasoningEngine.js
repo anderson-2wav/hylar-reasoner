@@ -122,13 +122,15 @@ ReasoningEngine = {
                       .then(function(values) {
                           FiDelNew = values.cons;
                           if (Utils.uniques(FiDel, FiDelNew).length > FiDel.length) {
-                              overDeletionEvaluationLoop();
+                              // Yield once per saturation iteration so the event loop
+                              // can service I/O. See optimization-spec.md §2.
+                              setTimeout(overDeletionEvaluationLoop, 0);
                           } else {
                               Fe = Logics.minus(Fe, FeDel);
                               // it seems like this would remove many inferences
                               // unrelated to FeDel. It appears that way in debugging.
                               Fi = Logics.minus(Fi, FiDel);
-                              rederivationEvaluationLoop();
+                              setTimeout(rederivationEvaluationLoop, 0);
                           }
                       });
                 }
@@ -150,9 +152,9 @@ ReasoningEngine = {
                     .then(function(values) {
                         FiAddNew = values.cons;
                         if (Utils.uniques(FiAdd, FiAddNew).length > FiAdd.length) {
-                            rederivationEvaluationLoop();
+                            setTimeout(rederivationEvaluationLoop, 0);
                         } else {
-                            insertionEvaluationLoop();
+                            setTimeout(insertionEvaluationLoop, 0);
                         }
                     });
             },
@@ -220,7 +222,7 @@ ReasoningEngine = {
                             // KB is needed for _.differenceBy, so update it now
                             KB = D.values();
                             console.log(`insertionEvaluationLoop #${insertionLoopCt} inferred ${FiAddNew.length} facts.`);
-                            insertionEvaluationLoop();
+                            setTimeout(insertionEvaluationLoop, 0);
                         } else {
                             // remember the new I in the total set, without duplicates
                             FiAdd = Utils.uniques(FiAdd, FiAddNew);

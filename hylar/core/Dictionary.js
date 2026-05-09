@@ -46,6 +46,46 @@ function Dictionary(dict, index) {
     // update: I think this may hold true only during initial classify...
     this._seen = new Set();
 
+    // Incremental graph hash (two 32-bit accumulators, xor of per-fact hashes).
+    // Solver consults `graphHash` getter to early-out when the dict is unchanged
+    // since a cause last looked at it.
+    this._graphHash0 = 0;
+    this._graphHash1 = 0;
+
+};
+
+/**
+ * FNV-1a-style 32-bit hash, seedable so we can derive two independent
+ * lanes for an effective 64-bit fact identifier. Cached on the Fact as `_hash`.
+ */
+function _factHashLane(str, seed) {
+    let h = seed | 0;
+    for (let i = 0; i < str.length; i++) {
+        h = Math.imul(h ^ str.charCodeAt(i), 0x01000193);
+    }
+    return h >>> 0;
+}
+
+function _factHash(fact) {
+    if (fact._hash !== undefined) return fact._hash;
+    const s = fact.asString;
+    fact._hash = [_factHashLane(s, 0x811c9dc5), _factHashLane(s, 0x9dc58119)];
+    return fact._hash;
+}
+
+Object.defineProperty(Dictionary.prototype, 'graphHash', {
+    get() {
+        const h0 = this._graphHash0 >>> 0;
+        const h1 = this._graphHash1 >>> 0;
+        return `${h0.toString(16)}:${h1.toString(16)}`;
+    },
+    configurable: true,
+});
+
+Dictionary.prototype._xorFact = function(fact) {
+    const [h0, h1] = _factHash(fact);
+    this._graphHash0 = (this._graphHash0 ^ h0) >>> 0;
+    this._graphHash1 = (this._graphHash1 ^ h1) >>> 0;
 };
 
 Dictionary.clone = function (dict) {
@@ -118,6 +158,8 @@ Dictionary.prototype.clear = function() {
     this.dict = {
         '#default': {}
     };
+    this._graphHash0 = 0;
+    this._graphHash1 = 0;
 };
 
 /**
@@ -161,14 +203,25 @@ Dictionary.prototype.put = function(fact, graph) {
             return;
         }
         if(fact.predicate === 'FALSE') {
+            const existed = !!this.dict[graph]['__FALSE__'];
             this.dict[graph]['__FALSE__'] = [fact];
+            if (!existed) this._xorFact(fact);
         } else {
             factToTurtle = ParsingInterface.factToTurtle(fact);
             if (this.dict[graph][factToTurtle]) {
-                this.dict[graph][factToTurtle] = Utils.insertUnique(this.dict[graph][factToTurtle], fact);
+                const arr = this.dict[graph][factToTurtle];
+                const prevLen = arr.length;
+                const updated = Utils.insertUnique(arr, fact);
+                this.dict[graph][factToTurtle] = updated;
+                // insertUnique replaces by asString-key; only a length increase
+                // means the dict gained a new asString.
+                if (updated.length > prevLen) {
+                    this._xorFact(fact);
+                }
             } else {
                 this.dict[graph][factToTurtle] = [fact];
                 this.dict[graph][factToTurtle].lastUpdate = timestamp;
+                this._xorFact(fact);
             }
         }
         this.putIndex(fact,graph);
@@ -239,7 +292,9 @@ Dictionary.prototype.purgeOld = function() {
     for (var i in this.dict.length) {
         for (var j in this.dict[i].length) {
             for (var k in this.dict[i][j]) {
-                if (!this.dict[i][j][k].isValid() && this.isOld(i,j)) {
+                const fact = this.dict[i][j][k];
+                if (!fact.isValid() && this.isOld(i,j)) {
+                    this._xorFact(fact);
                     delete this.dict[i][j][k];
                 }
             }

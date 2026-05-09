@@ -34,26 +34,65 @@ Utils = {
      * @param _set2
      * @returns {Array}
      */
+    // Prefer Fact.asString (already cached in the constructor) and fall back
+    // to toString() so the function still works on arbitrary values
+    // (e.g. Rule.constants, which are strings). See optimization-spec.md §3.2.
+    _key: function(el) {
+        return el.asString !== undefined ? el.asString : el.toString();
+    },
+
     uniques: function(...sets) {
-        var hash = {}, uniq = [],
-            fullSet = [].concat(...sets);
-
-        for (var i = 0; i < fullSet.length; i++) {
-            if (fullSet[i] !== undefined) hash[fullSet[i].toString()] = fullSet[i];
+        var map = new Map();
+        for (var s = 0; s < sets.length; s++) {
+            var set = sets[s];
+            if (!set) continue;
+            for (var i = 0; i < set.length; i++) {
+                var el = set[i];
+                if (el !== undefined) {
+                    map.set(Utils._key(el), el);
+                }
+            }
         }
-
-        for (var key in hash) {
-            uniq.push(hash[key]);
-        }
-        return uniq;
+        return Array.from(map.values());
     },
 
     insertUnique: function(_set, val) {
-        return this.uniques(_set, [val]);
+        if (val === undefined) return _set ? _set.slice() : [];
+        if (!_set || _set.length === 0) return [val];
+        var key = Utils._key(val);
+        var out = new Array(_set.length);
+        var replaced = false;
+        for (var i = 0; i < _set.length; i++) {
+            var el = _set[i];
+            // Match uniques(): last write wins on duplicate key.
+            if (!replaced && el !== undefined && Utils._key(el) === key) {
+                out[i] = val;
+                replaced = true;
+            } else {
+                out[i] = el;
+            }
+        }
+        if (!replaced) out.push(val);
+        return out;
     },
 
+    // Equivalent to uniques(_set1, _set2).length == _set1.length but avoids
+    // materializing the union array.
     containsSubset: function(_set1, _set2) {
-        return this.uniques(_set1, _set2).length == _set1.length
+        var keys = new Set();
+        if (_set1) {
+            for (var i = 0; i < _set1.length; i++) {
+                var el = _set1[i];
+                if (el !== undefined) keys.add(Utils._key(el));
+            }
+        }
+        if (_set2) {
+            for (var i = 0; i < _set2.length; i++) {
+                var el = _set2[i];
+                if (el !== undefined) keys.add(Utils._key(el));
+            }
+        }
+        return keys.size === (_set1 ? _set1.length : 0);
     },
 
     /**

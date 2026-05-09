@@ -32,7 +32,16 @@ Solver = {
     evaluateRuleSet: function(rs, facts, KB, D,  doTagging, resolvedImplicitFactSet, whitelist) {
         this.KB = KB; // yucky, but make available to internal fns this way.
         this.D = D;
-        this.graphHash = Utils.stringHash(this.KB.map(f => f.asString));
+        // Prefer the Dictionary's incremental graphHash (O(1)) over hashing KB
+        // from scratch (O(KB) per phase). Fall back to the legacy stringHash
+        // for code paths that don't pass a Dictionary (e.g. tagging).
+        if (D && typeof D._graphHash0 === "number") {
+            this.graphHash = D.graphHash;
+        } else if (KB) {
+            this.graphHash = Utils.stringHash(KB.map(f => f.asString));
+        } else {
+            this.graphHash = "";
+        }
         var deferred = q.defer(), promises = [], cons = [], filteredFacts;
         for (var key in rs) {
             const rul = rs[key]; // just for bps
@@ -74,64 +83,63 @@ Solver = {
         var consequences = [], deferred = q.defer();
         rule._skippedCt = 0;
         rule._evaluatedCt = 0;
-        setTimeout(function() {
-            // find all the matching ?x variables in causes
-            var mappingList = this.getMappings(rule, facts);
-            try {
-                this.checkOperators(rule, mappingList);
+        // Yielding moved out of here to ReasoningEngine's per-iteration boundary;
+        // see optimization-spec.md §2.
+        var mappingList = this.getMappings(rule, facts);
+        try {
+            this.checkOperators(rule, mappingList);
 
-                for (var i = 0; i < mappingList.length; i++) {
-                    if (mappingList[i]) {
-                        const mapping = mappingList[i];
-                        // Replace mappings on all consequences
-                        for (var j = 0; j < rule.consequences.length; j++) {
-                            const consequence= this.substituteFactVariables(mapping, rule.consequences[j], [], rule);
-                            // TODO Make a patchup plugin for discovered aberrations
-                            // FIX OBVIOUS SILLY STUFF
-                            // Don't create inferences where the subject is a string literal, e.g.
-                            //"XYZ" rdf:type xsd:string
-                            if (consequence.subject?.[0] === '"') {
-                                // console.log(`ignore consequence for subject: ${consequence.subject}`);
-                                continue;
-                            }
-                            // Don't create wasteful self-referential statements eg.
-                            // <https://ontologize.2wav.com/ontology/bridge#confidence> <http://www.w3.org/2000/01/rdf-schema#subPropertyOf> <https://ontologize.2wav.com/ontology/bridge#confidence>
-                            if (consequence.subject === consequence.object) {
-                                continue;
-                            }
-                            if (whitelist) {
-                                if (whitelist.includes(consequence.subject)) {
-                                    consequences.push(consequence);
-                                }
-                            }
-                            else {
-                                // console.log(`${rule.name} add consequence for mapping ${i}`);
+            for (var i = 0; i < mappingList.length; i++) {
+                if (mappingList[i]) {
+                    const mapping = mappingList[i];
+                    // Replace mappings on all consequences
+                    for (var j = 0; j < rule.consequences.length; j++) {
+                        const consequence= this.substituteFactVariables(mapping, rule.consequences[j], [], rule);
+                        // TODO Make a patchup plugin for discovered aberrations
+                        // FIX OBVIOUS SILLY STUFF
+                        // Don't create inferences where the subject is a string literal, e.g.
+                        //"XYZ" rdf:type xsd:string
+                        if (consequence.subject?.[0] === '"') {
+                            // console.log(`ignore consequence for subject: ${consequence.subject}`);
+                            continue;
+                        }
+                        // Don't create wasteful self-referential statements eg.
+                        // <https://ontologize.2wav.com/ontology/bridge#confidence> <http://www.w3.org/2000/01/rdf-schema#subPropertyOf> <https://ontologize.2wav.com/ontology/bridge#confidence>
+                        if (consequence.subject === consequence.object) {
+                            continue;
+                        }
+                        if (whitelist) {
+                            if (whitelist.includes(consequence.subject)) {
                                 consequences.push(consequence);
                             }
                         }
-                    }
-                }
-                if (true || Solver._verbose) {
-                    let msg = `rule ${rule.name} inferred ${consequences.length} facts.`;
-                    if (Solver._verbose) {
-                        if (consequences.length > 0) {
-                            msg += `\n${JSON.stringify(consequences.map(c => c.asString), null, 2)}\n`;
+                        else {
+                            // console.log(`${rule.name} add consequence for mapping ${i}`);
+                            consequences.push(consequence);
                         }
                     }
-                    if (rule._evaluatedCt) {
-                        msg += ` evaluated ${rule._evaluatedCt} new facts.`;
-                    }
-                    if (rule._skippedCt) {
-                        msg += ` skipped ${rule._skippedCt} known facts.`;
-                    }
-                    console.log(msg);
                 }
-                // rule._skippedCt = 0;
-                deferred.resolve(consequences);
-            } catch(e) {
-                deferred.reject(e);
             }
-        }.bind(this),250);
+            if (true || Solver._verbose) {
+                let msg = `rule ${rule.name} inferred ${consequences.length} facts.`;
+                if (Solver._verbose) {
+                    if (consequences.length > 0) {
+                        msg += `\n${JSON.stringify(consequences.map(c => c.asString), null, 2)}\n`;
+                    }
+                }
+                if (rule._evaluatedCt) {
+                    msg += ` evaluated ${rule._evaluatedCt} new facts.`;
+                }
+                if (rule._skippedCt) {
+                    msg += ` skipped ${rule._skippedCt} known facts.`;
+                }
+                console.log(msg);
+            }
+            // rule._skippedCt = 0;
+            deferred.resolve(consequences);
+        } catch(e) {
+            deferred.reject(e);
+        }
 
         return deferred.promise;
     },
